@@ -1,0 +1,4 @@
+{
+  "cmake.useCMakePresets": true,
+  "makefile.configureOnOpen": true
+}
