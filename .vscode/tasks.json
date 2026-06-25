@@ -2,32 +2,53 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "configure (debug)",
+      "label": "configure (native)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--preset", "debug"]
+      "args": ["--preset", "debug (native)"]
     },
     {
-      "label": "build (debug)",
+      "label": "build (native)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build", "--preset", "debug"]
+      "args": ["--build", "--preset", "debug (native)"]
     },
     {
-      "label": "run (debug)",
+      "label": "run (native)",
       "type": "shell",
-      "command": "${workspaceFolder}/build/debug/App",
-      "args": ["--build", "--preset", "debug"]
+      "command": "${workspaceFolder}/build/native/debug/App"
     },
     {
-      "label": "configure, build, run",
+      "label": "configure, build, run (native)",
       "dependsOrder": "sequence",
-      "dependsOn": ["configure (debug)", "build (debug)", "run (debug)"],
+      "dependsOn": ["configure (native)", "build (native)", "run (native)"],
     },
     {
-      "label": "build, run",
+      "label": "build, run (native)",
       "dependsOrder": "sequence",
-      "dependsOn": ["build (debug)", "run (debug)"]
+      "dependsOn": ["build (native)", "run (native)"]
+    },
+    {
+      "label": "configure (web)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--preset", "debug (web)"]
+    },
+    {
+      "label": "build (web)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "--preset", "debug (web)"]
+    },
+    {
+      "label": "run (web)",
+      "type": "shell",
+      "command": "python3 -m http.server 8000" // run npm install -g open-cli if this is not opening browser for you.
+    },
+    {
+      "label": "configure, build, run (web)",
+      "dependsOrder": "sequence",
+      "dependsOn": ["configure (web)", "build (web)", "run (web)"],
     }
   ]
 }

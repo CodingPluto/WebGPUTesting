@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cassert>
 #define WEBGPU_CPP_IMPLEMENTATION
+#ifndef __EMSCRIPTEN__
 #include <webgpu/webgpu.h>
 #include <vector>
 #include <iomanip>
@@ -186,7 +187,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   wgpuAdapterRelease(adapter);
 }
 
-
+#endif
 
 // Matrices in Eigen are row-major, where GLM are column-major, so must
 // transpose between them!
@@ -208,9 +209,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
   -DCMAKE_BUILD_TYPE=Release \
   -DEMSCRIPTEN=ON*/
-// OR emcmake cmake -G Ninja -S . -B build-emscripten -DCMAKE_BUILD_TYPE=Release
+// OR emcmake cmake -G Ninja -S . -B build/web/debug -DCMAKE_BUILD_TYPE=Debug
 
-  //cmake --build build-emscripten -- -j$(sysctl -n hw.logicalcpu)
+  //cmake --build build/web/debug -- -j$(sysctl -n hw.logicalcpu)
 
 /*
 cd "/Users/chris/Documents/Github Repos/WebGPUTesting"
@@ -219,7 +220,6 @@ chmod +x build-emscripten/dawn/protoc.js-33.0.0
 
 
  /*
- 
  emcmake cmake -B out/wasm -G Ninja \
   -DDAWN_ENABLE_EMSCRIPTEN=ON \
   -DDAWN_BUILD_SAMPLES=OFF \

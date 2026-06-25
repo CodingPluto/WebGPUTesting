@@ -7,19 +7,39 @@
   },
   "configurePresets": [
     {
-      "name": "debug",
-      "displayName": "Debug Config",
+      "name": "debug (native)",
+      "displayName": "Native Debug Config",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/debug",
+      "binaryDir": "${sourceDir}/build/native/debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
-      "name": "release",
-      "displayName": "Release Config",
+      "name": "release (native)",
+      "displayName": "Native Release Config",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/release",
+      "binaryDir": "${sourceDir}/build/native/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug (web)",
+      "displayName": "Web Debug Config",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/web/debug",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release (web)",
+      "displayName": "Web Release Config",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/web/release",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -27,12 +47,20 @@
   ],
   "buildPresets": [
     {
-      "name": "debug",
-      "configurePreset": "debug"
+      "name": "debug (native)",
+      "configurePreset": "debug (native)"
     },
     {
-      "name": "release",
-      "configurePreset": "release"
+      "name": "release (native)",
+      "configurePreset": "release (native)"
+    },
+    {
+      "name": "debug (web)",
+      "configurePreset": "debug (web)"
+    },
+    {
+      "name": "release (web)",
+      "configurePreset": "release (web)"
     }
   ]
 }
