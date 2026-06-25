@@ -126,8 +126,15 @@ std::string_view featureToString(WGPUFeatureName f) {
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
-  std::cout << "Testing (:)" << std::endl;
-  std::cout << "Hello Worlds!!! (:" << std::endl;
+  std::cout << "Using Emscripten: " << std::flush;
+  #ifdef __EMSCRIPTEN__
+    std::cout << "true" << std::flush;
+  #else
+    std::cout << "false" << std::flush;
+  #endif
+  std::cout << std::endl;
+
+
   WGPUInstanceDescriptor desc = {};
   desc.nextInChain = nullptr;
   #ifdef __EMSCRIPTEN__
