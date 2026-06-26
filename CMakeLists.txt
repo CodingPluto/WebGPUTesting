@@ -45,19 +45,22 @@ endif()
 #  add_subdirectory(glfw)
 #endif()
 if (EMSCRIPTEN)
+  target_compile_options(App PRIVATE --use-port=emdawnwebgpu) # Supplies dawn files to compiler. Needed for includes.
+  target_compile_definitions(App PRIVATE
+        DAWN_ENABLE_EMSCRIPTEN=ON
+        DAWN_BUILD_SAMPLES=OFF
+        DAWN_BUILD_TESTS=OFF
+        DAWN_ENABLE_DESKTOP_GL=OFF
+        DAWN_ENABLE_VULKAN=OFF
+        DAWN_ENABLE_METAL=OFF
+        DAWN_ENABLE_D3D11=OFF
+        DAWN_ENABLE_D3D12=OFF
+        DAWN_USE_GLFW=OFF
+    )
   target_link_options(App PRIVATE
         -sUSE_GLFW=3
         --use-port=emdawnwebgpu
         -sASYNCIFY
-        -DDAWN_ENABLE_EMSCRIPTEN=ON
-        -DDAWN_BUILD_SAMPLES=OFF
-        -DDAWN_BUILD_TESTS=OFF
-        -DDAWN_ENABLE_DESKTOP_GL=OFF
-        -DDAWN_ENABLE_VULKAN=OFF
-        -DDAWN_ENABLE_METAL=OFF
-        -DDAWN_ENABLE_D3D11=OFF
-        -DDAWN_ENABLE_D3D12=OFF
-        -DDAWN_USE_GLFW=OFF
     )
   set_target_properties(App PROPERTIES SUFFIX ".html")
 endif()

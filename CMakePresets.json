@@ -10,15 +10,12 @@
       "name": "native-base",
       "hidden": true,
       "generator": "Ninja",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      }
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
     },
     {
       "name": "debug (native)",
       "displayName": "Native Debug Config",
       "inherits": "native-base",
-      "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/native/debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -35,11 +32,16 @@
       }
     },
     {
+      "name": "web-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+    },
+    {
       "name": "debug (web)",
       "displayName": "Web Debug Config",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/web/debug",
-      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
@@ -49,7 +51,6 @@
       "displayName": "Web Release Config",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/web/release",
-      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }

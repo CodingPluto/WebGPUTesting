@@ -1,14 +1,13 @@
 #include <iostream>
 #include <cassert>
-#define WEBGPU_CPP_IMPLEMENTATION
-#ifndef __EMSCRIPTEN__
 #include <webgpu/webgpu.h>
+
 #include <vector>
 #include <iomanip>
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#endif // __EMSCRIPTEN__
-
+#endif
 
 WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions const *options){
   struct UserData{
@@ -135,7 +134,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   #endif
   std::cout << std::endl;
 
-
   WGPUInstanceDescriptor desc = {};
   desc.nextInChain = nullptr;
   #ifdef __EMSCRIPTEN__
@@ -186,9 +184,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
 
   wgpuAdapterRelease(adapter);
 }
-
-#endif
-
 // Matrices in Eigen are row-major, where GLM are column-major, so must
 // transpose between them!
 // Always pass eigen by const &
@@ -205,15 +200,13 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
 //cmake --build build -- -j$(sysctl -n hw.logicalcpu)
 //./build/App
 /*
-cmake -G Ninja -S . -B build-emscripten \
+cmake -G Ninja -S . -B build/web/debug \
   -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DEMSCRIPTEN=ON*/
+  -DCMAKE_BUILD_TYPE=Debug \
 // OR emcmake cmake -G Ninja -S . -B build/web/debug -DCMAKE_BUILD_TYPE=Debug
 
   //cmake --build build/web/debug -- -j$(sysctl -n hw.logicalcpu)
 
-/*
 cd "/Users/chris/Documents/Github Repos/WebGPUTesting"
 chmod +x build-emscripten/dawn/protoc.js-33.0.0
  */
