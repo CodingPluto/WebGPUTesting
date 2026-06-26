@@ -5,50 +5,76 @@
       "label": "configure (native)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--preset", "debug (native)"]
+      "args": [
+        "--preset",
+        "debug (native)"
+      ]
     },
     {
       "label": "build (native)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build", "--preset", "debug (native)"]
+      "args": [
+        "--build",
+        "--preset",
+        "debug (native)"
+      ]
     },
     {
       "label": "run (native)",
       "type": "shell",
-      "command": "${workspaceFolder}/build/native/debug/App"
+      "command": "${workspaceFolder}/build/native/debug/App",
+      "problemMatcher": []
     },
     {
       "label": "configure, build, run (native)",
       "dependsOrder": "sequence",
-      "dependsOn": ["configure (native)", "build (native)", "run (native)"],
+      "dependsOn": [
+        "configure (native)",
+        "build (native)",
+        "run (native)"
+      ]
     },
     {
       "label": "build, run (native)",
       "dependsOrder": "sequence",
-      "dependsOn": ["build (native)", "run (native)"]
+      "dependsOn": [
+        "build (native)",
+        "run (native)"
+      ]
     },
     {
       "label": "configure (web)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--preset", "debug (web)"]
+      "args": [
+        "--preset",
+        "debug (web)"
+      ]
     },
     {
       "label": "build (web)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build", "--preset", "debug (web)"]
+      "args": [
+        "--build",
+        "--preset",
+        "debug (web)"
+      ]
     },
     {
       "label": "run (web)",
       "type": "shell",
-      "command": "python3 -m http.server 8000" // run npm install -g open-cli if this is not opening browser for you.
+      "command": "python3 -m http.server 8000"
     },
     {
       "label": "configure, build, run (web)",
       "dependsOrder": "sequence",
-      "dependsOn": ["configure (web)", "build (web)", "run (web)"],
+      "dependsOn": [
+        "configure (web)",
+        "build (web)",
+        "run (web)"
+      ]
     }
   ]
 }

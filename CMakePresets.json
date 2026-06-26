@@ -7,8 +7,17 @@
   },
   "configurePresets": [
     {
+      "name": "native-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      }
+    },
+    {
       "name": "debug (native)",
       "displayName": "Native Debug Config",
+      "inherits": "native-base",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/native/debug",
       "cacheVariables": {
@@ -18,6 +27,7 @@
     {
       "name": "release (native)",
       "displayName": "Native Release Config",
+      "inherits": "native-base",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/native/release",
       "cacheVariables": {

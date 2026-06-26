@@ -14,15 +14,15 @@ if (NOT EMSCRIPTEN)
   set(DAWN_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
   set(DAWN_BUILD_PROTOBUF OFF CACHE BOOL "" FORCE)
   set(DAWN_ENABLE_INSTALL off)
-  add_subdirectory(external/dawn)
+  find_package(Dawn CONFIG REQUIRED)
 endif()
 
 add_executable(App src/main.cpp)
 target_include_directories(App PRIVATE ${CMAKE_SOURCE_DIR}/include)
 if (NOT EMSCRIPTEN)
-  target_include_directories(App PRIVATE ${CMAKE_SOURCE_DIR}/external/dawn/include)
-  target_link_libraries(App PUBLIC webgpu_dawn)
+  target_link_libraries(App PUBLIC dawn::webgpu_dawn dawn::dawn_public_config)
 endif()
+
 set_target_properties(App PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON

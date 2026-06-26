@@ -204,8 +204,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
 //cmake -G Ninja -S . -B build
 //cmake --build build -- -j$(sysctl -n hw.logicalcpu)
 //./build/App
-
-/*cmake -G Ninja -S . -B build-emscripten \
+/*
+cmake -G Ninja -S . -B build-emscripten \
   -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
   -DCMAKE_BUILD_TYPE=Release \
   -DEMSCRIPTEN=ON*/
@@ -231,3 +231,4 @@ chmod +x build-emscripten/dawn/protoc.js-33.0.0
   -DDAWN_ENABLE_D3D12=OFF \
   -DDAWN_USE_GLFW=OFF
   */
+ 
