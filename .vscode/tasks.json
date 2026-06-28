@@ -65,7 +65,17 @@
     {
       "label": "run (web)",
       "type": "shell",
-      "command": "python3 -m http.server 8000"
+      "command": "python3",
+      "args": ["-m", "http.server", "8000"],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "open (web browser)",
+      "type": "shell",
+      "command": "open",
+      "args": ["http://localhost:8000/build/web/debug/App.html"],
+      "problemMatcher": []
     },
     {
       "label": "configure, build, run (web)",
@@ -74,7 +84,9 @@
         "configure (web)",
         "build (web)",
         "run (web)"
-      ]
-    }
+      ],
+      "problemMatcher": []
+    },
+    
   ]
 }
