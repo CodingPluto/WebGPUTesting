@@ -15,12 +15,33 @@ if (NOT EMSCRIPTEN)
   set(DAWN_BUILD_PROTOBUF OFF CACHE BOOL "" FORCE)
   set(DAWN_ENABLE_INSTALL off)
   find_package(Dawn CONFIG REQUIRED)
+  find_package(glfw3 CONFIG REQUIRED)
 endif()
 
-add_executable(App src/main.cpp)
+add_executable(App src/main.cpp src/glfw3webgpu.c)
+
+if (APPLE)
+  set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-x objective-c -w")
+else()
+  set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-w")
+endif()
+
+
+
 target_include_directories(App PRIVATE ${CMAKE_SOURCE_DIR}/include)
 if (NOT EMSCRIPTEN)
-  target_link_libraries(App PUBLIC dawn::webgpu_dawn dawn::dawn_public_config)
+  target_link_libraries(App PRIVATE dawn::webgpu_dawn dawn::dawn_public_config)
+  target_link_libraries(App PRIVATE glfw)
+endif()
+
+if (APPLE)
+  target_link_libraries(App 
+    PRIVATE 
+    "-framework Cocoa"
+    "-framework CoreVideo"
+    "-framework IOKit"
+    "-framework QuartzCore" # Required for Metal layers
+  )
 endif()
 
 set_target_properties(App PROPERTIES
@@ -45,13 +66,14 @@ endif()
 
 if (EMSCRIPTEN)
   target_compile_options(App PRIVATE --use-port=emdawnwebgpu) # Supplies dawn files to compiler. Needed for includes.
+  target_compile_definitions(App PRIVATE WEBGPU_BACKEND_EMDAWNWEBGPU)
   target_compile_definitions(App PRIVATE
         DAWN_ENABLE_EMSCRIPTEN=ON
         DAWN_BUILD_SAMPLES=OFF
         DAWN_BUILD_TESTS=OFF
         DAWN_ENABLE_DESKTOP_GL=OFF
         DAWN_ENABLE_VULKAN=OFF
-        DAWN_ENABLE_METAL=OFF
+        DAWN_ENABLE_METAL=ON
         DAWN_ENABLE_D3D11=OFF
         DAWN_ENABLE_D3D12=OFF
         DAWN_USE_GLFW=ON
@@ -59,7 +81,6 @@ if (EMSCRIPTEN)
   target_link_options(App PRIVATE
         -sUSE_GLFW=3
         --use-port=emdawnwebgpu
-        -sASYNCIFY
     )
   set_target_properties(App PROPERTIES SUFFIX ".html")
 endif()
