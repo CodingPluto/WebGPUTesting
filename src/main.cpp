@@ -1,13 +1,10 @@
 #include <iostream>
 #include <cassert>
-#include <vector>
-#include <iomanip>
 #include <format>
 #include <print>
 
 
 #include <webgpu/webgpu_cpp.h>
-
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -20,6 +17,34 @@ struct std::formatter<wgpu::StringView> : std::formatter<std::string_view> {
       view = (wgpu_str.length == WGPU_STRLEN) ? std::string_view{wgpu_str.data} : std::string_view{wgpu_str.data, wgpu_str.length};
     }
     return std::formatter<std::string_view>::format(view, ctx);
+  }
+};
+template <>
+struct std::formatter<wgpu::QueueWorkDoneStatus> : std::formatter<std::string_view> {
+  auto format(wgpu::QueueWorkDoneStatus status, std::format_context& ctx) const {
+    std::string_view s;
+    switch (status) {
+      case wgpu::QueueWorkDoneStatus::Success:           s = "Success"; break;
+      case wgpu::QueueWorkDoneStatus::CallbackCancelled: s = "CallbackCancelled"; break;
+      case wgpu::QueueWorkDoneStatus::Error:             s = "Error"; break;
+      default:                                           s = "UnknownQueueWorkDoneStatus"; break;
+    }
+    return std::formatter<std::string_view>::format(s, ctx);
+  }
+};
+template <>
+struct std::formatter<wgpu::ErrorType> : std::formatter<std::string_view> {
+  auto format(wgpu::ErrorType type, std::format_context& ctx) const {
+    std::string_view s;
+    switch (type) {
+      case wgpu::ErrorType::NoError:     s = "NoError"; break;
+      case wgpu::ErrorType::Validation:  s = "Validation"; break;
+      case wgpu::ErrorType::OutOfMemory: s = "OutOfMemory"; break;
+      case wgpu::ErrorType::Internal:    s = "Internal"; break;
+      case wgpu::ErrorType::Unknown:     s = "Unknown"; break;
+      default:                           s = "UnknownErrorType"; break;
+    }
+    return std::formatter<std::string_view>::format(s, ctx);
   }
 };
 template <>
@@ -63,6 +88,7 @@ struct std::formatter<wgpu::FeatureName> : std::formatter<std::string_view> {
       case wgpu::FeatureName::TextureFormatsTier2: s = "TextureFormatsTier2"; break;
       case wgpu::FeatureName::PrimitiveIndex: s = "PrimitiveIndex"; break;
       case wgpu::FeatureName::TextureComponentSwizzle: s = "TextureComponentSwizzle"; break;
+      #ifndef __EMSCRIPTEN__
       case wgpu::FeatureName::DawnInternalUsages: s = "DawnInternalUsages"; break;
       case wgpu::FeatureName::DawnMultiPlanarFormats: s = "DawnMultiPlanarFormats"; break;
       case wgpu::FeatureName::DawnNative: s = "DawnNative"; break;
@@ -128,6 +154,7 @@ struct std::formatter<wgpu::FeatureName> : std::formatter<std::string_view> {
       case wgpu::FeatureName::Unorm16Filterable: s = "Unorm16Filterable"; break;
       case wgpu::FeatureName::RenderPassRenderArea: s = "RenderPassRenderArea"; break;
       case wgpu::FeatureName::AdapterPropertiesDrm: s = "AdapterPropertiesDrm"; break;
+      #endif
       default: s = "UnknownFeature"; break;
     }
     return std::formatter<std::string_view>::format(s, ctx);
@@ -179,11 +206,10 @@ struct std::formatter<wgpu::BackendType> : std::formatter<std::string_view> {
   return false;
 }
 
-
 wgpu::Adapter RequestAdapterSync(wgpu::Instance instance, const wgpu::RequestAdapterOptions *options){
   wgpu::Adapter adapter = nullptr;
   bool request_ended = false;
-  wgpu::Future future = instance.RequestAdapter( // Async function!
+  [[maybe_unused]]wgpu::Future future = instance.RequestAdapter( // Async function!
       options, 
       wgpu::CallbackMode::AllowSpontaneous, 
       [&](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, [[maybe_unused]]wgpu::StringView message) {
@@ -203,10 +229,10 @@ wgpu::Adapter RequestAdapterSync(wgpu::Instance instance, const wgpu::RequestAda
   assert(request_ended);
   return adapter;
 }
-wgpu::Device RequestDeviceSync(wgpu::Instance instance, wgpu::Adapter adapter, const wgpu::DeviceDescriptor *descriptor){
+wgpu::Device RequestDeviceSync([[maybe_unused]]wgpu::Instance instance, wgpu::Adapter adapter, const wgpu::DeviceDescriptor *descriptor){
   wgpu::Device device = nullptr;
   bool request_ended = false;
-  wgpu::Future future = adapter.RequestDevice( // Async function!
+  [[maybe_unused]]wgpu::Future future = adapter.RequestDevice( // Async function!
       descriptor, 
       wgpu::CallbackMode::AllowSpontaneous, 
       [&](wgpu::RequestDeviceStatus status, wgpu::Device result_device, [[maybe_unused]]wgpu::StringView message) {
@@ -241,7 +267,7 @@ void OutputLimits(const wgpu::Limits &limits){
 
 
 void inspectDevice(wgpu::Device device){
-  //Features
+  //Featurea
   std::print("Device features: \n");
   wgpu::SupportedFeatures features;
   device.GetFeatures(&features);
@@ -304,25 +330,42 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   inspectAdapter(adapter);
   if (adapter) std::print("Adapter created successfully\n");
   wgpu::DeviceDescriptor device_descriptor = {};
-  wgpu::Device device = RequestDeviceSync(instance, adapter, &device_descriptor);
-  if (device) std::print("Device created successfully\n");
+
+
   device_descriptor.nextInChain = nullptr;
   device_descriptor.label = WGPUStringView{.data = "TestDevice",.length = WGPU_STRLEN};
   device_descriptor.requiredFeatureCount = 0;
   device_descriptor.requiredLimits = nullptr;
   device_descriptor.defaultQueue.nextInChain = nullptr;
   device_descriptor.defaultQueue.label = WGPUStringView{.data = "DefaultQueue",.length = WGPU_STRLEN};
-  device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, [[maybe_unused]]wgpu::DeviceLostReason reason, [[maybe_unused]]wgpu::StringView message){
-    std::print("Device lost");
+  device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
+    std::print("Device lost. reason: {}", reason);
+    if (message.data) std::print("({})", message);
+    std::cout << std::endl;
+  }); 
+  device_descriptor.SetUncapturedErrorCallback([]([[maybe_unused]]wgpu::Device const& device, wgpu::ErrorType error, wgpu::StringView message){
+    std::print("Device uncaptured error: {}", error);
+    if (message.data) std::print("({})", message);
+    std::cout << std::endl;
   });
-    //reason: {}", reason);
-    //if (message.data) std::print("({})", message);
-    //std::cout << std::endl;
-  
-  
+  wgpu::Device device = RequestDeviceSync(instance, adapter, &device_descriptor);
+  if (device) std::print("Device created successfully\n");
   inspectDevice(device);
-  device.Destroy();
-  std::print("device destroyed\n");
+  wgpu::Queue queue = device.GetQueue();
+
+  // wgpu::CommandEncoderDescriptor encoder_descriptor = {.nextInChain = nullptr, .label = "My command encoder"};
+  // wgpu::CommandEncoder encoder = device.CreateCommandEncoder(&encoder_descriptor);
+  // encoder.InsertDebugMarker("do one thing");
+  // wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
+  // wgpu::CommandBuffer command = encoder.Finish(&command_buffer_descriptor);
+  // std::print("Submitting command..\n");
+  // queue.Submit(1, &command);
+  // std::print("Command submitted\n");
+  //   queue.OnSubmittedWorkDone(wgpu::CallbackMode::AllowSpontaneous,[](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
+  //   std::print("queue work finished. Status: {} ; Message: {}\n", status, message);
+  // });
+
+
 }
 // Matrices in Eigen are row-major, where GLM are column-major, so must
 // transpose between them!

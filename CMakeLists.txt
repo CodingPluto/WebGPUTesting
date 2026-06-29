@@ -41,9 +41,8 @@ if (XCODE)
         XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE "Metal"
     )
 endif()
-#if (NOT EMSCRPITEN)
-#  add_subdirectory(glfw)
-#endif()
+
+
 if (EMSCRIPTEN)
   target_compile_options(App PRIVATE --use-port=emdawnwebgpu) # Supplies dawn files to compiler. Needed for includes.
   target_compile_definitions(App PRIVATE
@@ -55,7 +54,7 @@ if (EMSCRIPTEN)
         DAWN_ENABLE_METAL=OFF
         DAWN_ENABLE_D3D11=OFF
         DAWN_ENABLE_D3D12=OFF
-        DAWN_USE_GLFW=OFF
+        DAWN_USE_GLFW=ON
     )
   target_link_options(App PRIVATE
         -sUSE_GLFW=3
