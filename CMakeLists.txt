@@ -3,6 +3,8 @@ project(
   LearnWebGPU
   LANGUAGES CXX C
 )
+
+
 if (NOT EMSCRIPTEN)
   set(TINT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
   set(TINT_BUILD_FUZZERS OFF CACHE BOOL "" FORCE)
@@ -20,11 +22,17 @@ endif()
 
 add_executable(App src/main.cpp src/glfw3webgpu.c)
 
+find_package(spdlog CONFIG REQUIRED)
+
+
 if (APPLE)
-  set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-x objective-c -w")
+  set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-x objective-c++ -w")
+  
 else()
-  set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-w")
+  set_source_files_properties(src/glfw3webgpu.c PROPERTIES LANGUAGE CXX COMPILE_FLAGS "-w")
 endif()
+
+target_link_libraries(App PRIVATE spdlog::spdlog_header_only)
 
 
 
@@ -34,13 +42,14 @@ if (NOT EMSCRIPTEN)
   target_link_libraries(App PRIVATE glfw)
 endif()
 
+
 if (APPLE)
   target_link_libraries(App 
     PRIVATE 
     "-framework Cocoa"
     "-framework CoreVideo"
     "-framework IOKit"
-    "-framework QuartzCore" # Required for Metal layers
+    "-framework QuartzCore"
   )
 endif()
 
@@ -65,6 +74,7 @@ endif()
 
 
 if (EMSCRIPTEN)
+  target_compile_definitions(App PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
   target_compile_options(App PRIVATE --use-port=emdawnwebgpu) # Supplies dawn files to compiler. Needed for includes.
   target_compile_definitions(App PRIVATE WEBGPU_BACKEND_EMDAWNWEBGPU)
   target_compile_definitions(App PRIVATE

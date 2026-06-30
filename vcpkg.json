@@ -1,6 +1,7 @@
 {
   "dependencies": [
     "dawn",
-    "glfw3"
+    "glfw3",
+    "spdlog"
   ]
 }

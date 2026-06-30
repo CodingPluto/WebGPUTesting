@@ -10,11 +10,7 @@ Prequesites for this repository:
 To initalise the project and install dawn:
 vcpkg install
 
-
-Goal for the next hour: Continue with tutorial through adapter and device - understand all code.
-
-
-Goal for today: Get a triangle showing and understand the code (maybe cleaned up a little) and how it works.
+goal for tmmrw: and the RAII wrapper for GLFW suggested by Gemini
 
 
 Web builds:

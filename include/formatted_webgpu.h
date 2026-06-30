@@ -1,33 +1,160 @@
 #pragma once
+#include <spdlog/fmt/fmt.h> 
+#include <fmt/format.h>
+#include <string_view>
+#include <cassert>
 
-#include <format>
-#include <iostream>
+
 enum class InitializationState{
   Uninitalised,
   RequestingAdapter,
   RequestingDevice,
+  ReceivedAdapterAndDevice,
   Ready,
   Failed
 };
 
+namespace wgpu {
+  constexpr std::string_view format_as(TextureFormat f) {
+    switch (f) {
+      case TextureFormat::Undefined: return "Undefined";
+      case TextureFormat::R8Unorm: return "R8Unorm";
+      case TextureFormat::R8Snorm: return "R8Snorm";
+      case TextureFormat::R8Uint: return "R8Uint";
+      case TextureFormat::R8Sint: return "R8Sint";
+      case TextureFormat::R16Unorm: return "R16Unorm";
+      case TextureFormat::R16Snorm: return "R16Snorm";
+      case TextureFormat::R16Uint: return "R16Uint";
+      case TextureFormat::R16Sint: return "R16Sint";
+      case TextureFormat::R16Float: return "R16Float";
+      case TextureFormat::RG8Unorm: return "RG8Unorm";
+      case TextureFormat::RG8Snorm: return "RG8Snorm";
+      case TextureFormat::RG8Uint: return "RG8Uint";
+      case TextureFormat::RG8Sint: return "RG8Sint";
+      case TextureFormat::R32Float: return "R32Float";
+      case TextureFormat::R32Uint: return "R32Uint";
+      case TextureFormat::R32Sint: return "R32Sint";
+      case TextureFormat::RG16Unorm: return "RG16Unorm";
+      case TextureFormat::RG16Snorm: return "RG16Snorm";
+      case TextureFormat::RG16Uint: return "RG16Uint";
+      case TextureFormat::RG16Sint: return "RG16Sint";
+      case TextureFormat::RG16Float: return "RG16Float";
+      case TextureFormat::RGBA8Unorm: return "RGBA8Unorm";
+      case TextureFormat::RGBA8UnormSrgb: return "RGBA8UnormSrgb";
+      case TextureFormat::RGBA8Snorm: return "RGBA8Snorm";
+      case TextureFormat::RGBA8Uint: return "RGBA8Uint";
+      case TextureFormat::RGBA8Sint: return "RGBA8Sint";
+      case TextureFormat::BGRA8Unorm: return "BGRA8Unorm";
+      case TextureFormat::BGRA8UnormSrgb: return "BGRA8UnormSrgb";
+      case TextureFormat::RGB10A2Uint: return "RGB10A2Uint";
+      case TextureFormat::RGB10A2Unorm: return "RGB10A2Unorm";
+      case TextureFormat::RG11B10Ufloat: return "RG11B10Ufloat";
+      case TextureFormat::RGB9E5Ufloat: return "RGB9E5Ufloat";
+      case TextureFormat::RG32Float: return "RG32Float";
+      case TextureFormat::RG32Uint: return "RG32Uint";
+      case TextureFormat::RG32Sint: return "RG32Sint";
+      case TextureFormat::RGBA16Unorm: return "RGBA16Unorm";
+      case TextureFormat::RGBA16Snorm: return "RGBA16Snorm";
+      case TextureFormat::RGBA16Uint: return "RGBA16Uint";
+      case TextureFormat::RGBA16Sint: return "RGBA16Sint";
+      case TextureFormat::RGBA16Float: return "RGBA16Float";
+      case TextureFormat::RGBA32Float: return "RGBA32Float";
+      case TextureFormat::RGBA32Uint: return "RGBA32Uint";
+      case TextureFormat::RGBA32Sint: return "RGBA32Sint";
+      case TextureFormat::Stencil8: return "Stencil8";
+      case TextureFormat::Depth16Unorm: return "Depth16Unorm";
+      case TextureFormat::Depth24Plus: return "Depth24Plus";
+      case TextureFormat::Depth24PlusStencil8: return "Depth24PlusStencil8";
+      case TextureFormat::Depth32Float: return "Depth32Float";
+      case TextureFormat::Depth32FloatStencil8: return "Depth32FloatStencil8";
+      case TextureFormat::BC1RGBAUnorm: return "BC1RGBAUnorm";
+      case TextureFormat::BC1RGBAUnormSrgb: return "BC1RGBAUnormSrgb";
+      case TextureFormat::BC2RGBAUnorm: return "BC2RGBAUnorm";
+      case TextureFormat::BC2RGBAUnormSrgb: return "BC2RGBAUnormSrgb";
+      case TextureFormat::BC3RGBAUnorm: return "BC3RGBAUnorm";
+      case TextureFormat::BC3RGBAUnormSrgb: return "BC3RGBAUnormSrgb";
+      case TextureFormat::BC4RUnorm: return "BC4RUnorm";
+      case TextureFormat::BC4RSnorm: return "BC4RSnorm";
+      case TextureFormat::BC5RGUnorm: return "BC5RGUnorm";
+      case TextureFormat::BC5RGSnorm: return "BC5RGSnorm";
+      case TextureFormat::BC6HRGBUfloat: return "BC6HRGBUfloat";
+      case TextureFormat::BC6HRGBFloat: return "BC6HRGBFloat";
+      case TextureFormat::BC7RGBAUnorm: return "BC7RGBAUnorm";
+      case TextureFormat::BC7RGBAUnormSrgb: return "BC7RGBAUnormSrgb";
+      case TextureFormat::ETC2RGB8Unorm: return "ETC2RGB8Unorm";
+      case TextureFormat::ETC2RGB8UnormSrgb: return "ETC2RGB8UnormSrgb";
+      case TextureFormat::ETC2RGB8A1Unorm: return "ETC2RGB8A1Unorm";
+      case TextureFormat::ETC2RGB8A1UnormSrgb: return "ETC2RGB8A1UnormSrgb";
+      case TextureFormat::ETC2RGBA8Unorm: return "ETC2RGBA8Unorm";
+      case TextureFormat::ETC2RGBA8UnormSrgb: return "ETC2RGBA8UnormSrgb";
+      case TextureFormat::EACR11Unorm: return "EACR11Unorm";
+      case TextureFormat::EACR11Snorm: return "EACR11Snorm";
+      case TextureFormat::EACRG11Unorm: return "EACRG11Unorm";
+      case TextureFormat::EACRG11Snorm: return "EACRG11Snorm";
+      case TextureFormat::ASTC4x4Unorm: return "ASTC4x4Unorm";
+      case TextureFormat::ASTC4x4UnormSrgb: return "ASTC4x4UnormSrgb";
+      case TextureFormat::ASTC5x4Unorm: return "ASTC5x4Unorm";
+      case TextureFormat::ASTC5x4UnormSrgb: return "ASTC5x4UnormSrgb";
+      case TextureFormat::ASTC5x5Unorm: return "ASTC5x5Unorm";
+      case TextureFormat::ASTC5x5UnormSrgb: return "ASTC5x5UnormSrgb";
+      case TextureFormat::ASTC6x5Unorm: return "ASTC6x5Unorm";
+      case TextureFormat::ASTC6x5UnormSrgb: return "ASTC6x5UnormSrgb";
+      case TextureFormat::ASTC6x6Unorm: return "ASTC6x6Unorm";
+      case TextureFormat::ASTC6x6UnormSrgb: return "ASTC6x6UnormSrgb";
+      case TextureFormat::ASTC8x5Unorm: return "ASTC8x5Unorm";
+      case TextureFormat::ASTC8x5UnormSrgb: return "ASTC8x5UnormSrgb";
+      case TextureFormat::ASTC8x6Unorm: return "ASTC8x6Unorm";
+      case TextureFormat::ASTC8x6UnormSrgb: return "ASTC8x6UnormSrgb";
+      case TextureFormat::ASTC8x8Unorm: return "ASTC8x8Unorm";
+      case TextureFormat::ASTC8x8UnormSrgb: return "ASTC8x8UnormSrgb";
+      case TextureFormat::ASTC10x5Unorm: return "ASTC10x5Unorm";
+      case TextureFormat::ASTC10x5UnormSrgb: return "ASTC10x5UnormSrgb";
+      case TextureFormat::ASTC10x6Unorm: return "ASTC10x6Unorm";
+      case TextureFormat::ASTC10x6UnormSrgb: return "ASTC10x6UnormSrgb";
+      case TextureFormat::ASTC10x8Unorm: return "ASTC10x8Unorm";
+      case TextureFormat::ASTC10x8UnormSrgb: return "ASTC10x8UnormSrgb";
+      case TextureFormat::ASTC10x10Unorm: return "ASTC10x10Unorm";
+      case TextureFormat::ASTC10x10UnormSrgb: return "ASTC10x10UnormSrgb";
+      case TextureFormat::ASTC12x10Unorm: return "ASTC12x10Unorm";
+      case TextureFormat::ASTC12x10UnormSrgb: return "ASTC12x10UnormSrgb";
+      case TextureFormat::ASTC12x12Unorm: return "ASTC12x12Unorm";
+      case TextureFormat::ASTC12x12UnormSrgb: return "ASTC12x12UnormSrgb";
+      #ifndef __EMSCRIPTEN__
+      case TextureFormat::R8BG8Biplanar420Unorm: return "R8BG8Biplanar420Unorm";
+      case TextureFormat::R10X6BG10X6Biplanar420Unorm: return "R10X6BG10X6Biplanar420Unorm";
+      case TextureFormat::R8BG8A8Triplanar420Unorm: return "R8BG8A8Triplanar420Unorm";
+      case TextureFormat::R8BG8Biplanar422Unorm: return "R8BG8Biplanar422Unorm";
+      case TextureFormat::R8BG8Biplanar444Unorm: return "R8BG8Biplanar444Unorm";
+      case TextureFormat::R10X6BG10X6Biplanar422Unorm: return "R10X6BG10X6Biplanar422Unorm";
+      case TextureFormat::R10X6BG10X6Biplanar444Unorm: return "R10X6BG10X6Biplanar444Unorm";
+      case TextureFormat::OpaqueYCbCrAndroid: return "OpaqueYCbCrAndroid";
+      #endif
+      default: return "Unknown";
+    }
+  }
+
+
+}
 
 template <>
-struct std::formatter<InitializationState> : std::formatter<std::string_view> {
-    auto format(InitializationState state, format_context& ctx) const {
+struct fmt::formatter<InitializationState> : fmt::formatter<std::string_view> {
+    auto format(InitializationState state, fmt::format_context& ctx) const {
         std::string_view name = "Unknown";
         switch (state) {
             case InitializationState::Uninitalised:      name = "Uninitalised"; break;
             case InitializationState::RequestingAdapter: name = "RequestingAdapter"; break;
             case InitializationState::RequestingDevice:  name = "RequestingDevice"; break;
+            case InitializationState::ReceivedAdapterAndDevice: name = "ReceivedAdapterAndDevice"; break;
             case InitializationState::Ready:             name = "Ready"; break;
             case InitializationState::Failed:            name = "Failed"; break;
         }
-        return std::formatter<std::string_view>::format(name, ctx);
+        return fmt::formatter<std::string_view>::format(name, ctx);
     }
 };
+
 template <>
-struct std::formatter<wgpu::RequestAdapterStatus> : std::formatter<std::string_view> {
-  auto format(wgpu::RequestAdapterStatus status, std::format_context& ctx) const {
+struct fmt::formatter<wgpu::RequestAdapterStatus> : fmt::formatter<std::string_view> {
+  auto format(wgpu::RequestAdapterStatus status, fmt::format_context& ctx) const {
     std::string_view s;
     switch (status) {
       case wgpu::RequestAdapterStatus::Success:           s = "Success"; break;
@@ -36,22 +163,24 @@ struct std::formatter<wgpu::RequestAdapterStatus> : std::formatter<std::string_v
       case wgpu::RequestAdapterStatus::Error:             s = "Error"; break;
       default:                                            s = "UnknownRequestAdapterStatus"; break;
     }
-    return std::formatter<std::string_view>::format(s, ctx);
+    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };
+
 template <>
-struct std::formatter<wgpu::StringView> : std::formatter<std::string_view> {
-  auto format(const wgpu::StringView &wgpu_str, std::format_context &ctx) const {
+struct fmt::formatter<wgpu::StringView> : fmt::formatter<std::string_view> {
+  auto format(const wgpu::StringView &wgpu_str, fmt::format_context &ctx) const {
     std::string_view view = {};
     if (wgpu_str.data){
       view = (wgpu_str.length == WGPU_STRLEN) ? std::string_view{wgpu_str.data} : std::string_view{wgpu_str.data, wgpu_str.length};
     }
-    return std::formatter<std::string_view>::format(view, ctx);
+    return fmt::formatter<std::string_view>::format(view, ctx);
   }
 };
+
 template <>
-struct std::formatter<wgpu::QueueWorkDoneStatus> : std::formatter<std::string_view> {
-  auto format(wgpu::QueueWorkDoneStatus status, std::format_context& ctx) const {
+struct fmt::formatter<wgpu::QueueWorkDoneStatus> : fmt::formatter<std::string_view> {
+  auto format(wgpu::QueueWorkDoneStatus status, fmt::format_context& ctx) const {
     std::string_view s;
     switch (status) {
       case wgpu::QueueWorkDoneStatus::Success:           s = "Success"; break;
@@ -59,12 +188,13 @@ struct std::formatter<wgpu::QueueWorkDoneStatus> : std::formatter<std::string_vi
       case wgpu::QueueWorkDoneStatus::Error:             s = "Error"; break;
       default:                                           s = "UnknownQueueWorkDoneStatus"; break;
     }
-    return std::formatter<std::string_view>::format(s, ctx);
+    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };
+
 template <>
-struct std::formatter<wgpu::ErrorType> : std::formatter<std::string_view> {
-  auto format(wgpu::ErrorType type, std::format_context& ctx) const {
+struct fmt::formatter<wgpu::ErrorType> : fmt::formatter<std::string_view> {
+  auto format(wgpu::ErrorType type, fmt::format_context& ctx) const {
     std::string_view s;
     switch (type) {
       case wgpu::ErrorType::NoError:     s = "NoError"; break;
@@ -74,12 +204,13 @@ struct std::formatter<wgpu::ErrorType> : std::formatter<std::string_view> {
       case wgpu::ErrorType::Unknown:     s = "Unknown"; break;
       default:                           s = "UnknownErrorType"; break;
     }
-    return std::formatter<std::string_view>::format(s, ctx);
+    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };
+
 template <>
-struct std::formatter<wgpu::DeviceLostReason> : std::formatter<std::string_view> {
-  auto format(wgpu::DeviceLostReason v, std::format_context& ctx) const {
+struct fmt::formatter<wgpu::DeviceLostReason> : fmt::formatter<std::string_view> {
+  auto format(wgpu::DeviceLostReason v, fmt::format_context& ctx) const {
     std::string_view s;
     switch (v) {
       case wgpu::DeviceLostReason::Unknown: s = "Unknown"; break;
@@ -88,12 +219,13 @@ struct std::formatter<wgpu::DeviceLostReason> : std::formatter<std::string_view>
       case wgpu::DeviceLostReason::FailedCreation: s = "FailedCreation"; break;
       default: s = "UnknownDeviceLostReason"; break;
     }
-    return std::formatter<std::string_view>::format(s, ctx);
+    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };
+
 template <>
-struct std::formatter<wgpu::FeatureName> : std::formatter<std::string_view> {
-  auto format(wgpu::FeatureName v, std::format_context& ctx) const {
+struct fmt::formatter<wgpu::FeatureName> : fmt::formatter<std::string_view> {
+  auto format(wgpu::FeatureName v, fmt::format_context& ctx) const {
     std::string_view s;
     switch (v) {
       case wgpu::FeatureName::CoreFeaturesAndLimits: s = "CoreFeaturesAndLimits"; break;
@@ -187,12 +319,13 @@ struct std::formatter<wgpu::FeatureName> : std::formatter<std::string_view> {
       #endif
       default: s = "UnknownFeature"; break;
     }
-    return std::formatter<std::string_view>::format(s, ctx);
+    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };
+
 template <>
-struct std::formatter<wgpu::AdapterType> : std::formatter<std::string_view> {
-  auto format(wgpu::AdapterType v, std::format_context& ctx) const {
+struct fmt::formatter<wgpu::AdapterType> : fmt::formatter<std::string_view> {
+  auto format(wgpu::AdapterType v, fmt::format_context& ctx) const {
     std::string_view s;
     switch (v) {
       case wgpu::AdapterType::DiscreteGPU: s = "DiscreteGPU"; break;
@@ -204,12 +337,13 @@ struct std::formatter<wgpu::AdapterType> : std::formatter<std::string_view> {
         s = "UnknownAdapterType";
         break;
     }
-    return std::formatter<std::string_view>::format(s, ctx);
+    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };
+
 template <>
-struct std::formatter<wgpu::BackendType> : std::formatter<std::string_view> {
-  auto format(wgpu::BackendType v, std::format_context& ctx) const {
+struct fmt::formatter<wgpu::BackendType> : fmt::formatter<std::string_view> {
+  auto format(wgpu::BackendType v, fmt::format_context& ctx) const {
     std::string_view s;
     switch (v) {
       case wgpu::BackendType::Undefined: s = "Undefined"; break;
@@ -226,6 +360,6 @@ struct std::formatter<wgpu::BackendType> : std::formatter<std::string_view> {
         s = "UnknownBackendType";
         break;
     }
-    return std::formatter<std::string_view>::format(s, ctx);
+    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };
