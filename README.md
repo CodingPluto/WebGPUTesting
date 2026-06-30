@@ -17,3 +17,10 @@ Web builds:
 if web builds are seemingly not updating, use
 CMD + SHIFT + R to force the browser to clear the cache and
 update the page.
+
+
+Change .clangd to whatever platform you are targeting.
+e.g. If I am targeting mac debug, change to:
+
+CompileFlags:
+  CompilationDatabase: build/native/macos/debug

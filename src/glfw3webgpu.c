@@ -69,15 +69,7 @@
 #  include <GLFW/glfw3native.h>
 #endif
 
-bool IsGlfwCocoaDefined(){
-  #ifdef _GLFW_COCOA
-    return true;
-  #endif
-  return false;
-}
-
 WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* window) {
-  spdlog::info("_GLFW_COCOA defined? {}", IsGlfwCocoaDefined());
 #ifndef __EMSCRIPTEN__
     switch (glfwGetPlatform()) {
 #else

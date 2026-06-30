@@ -13,21 +13,47 @@
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
     },
     {
-      "name": "debug (native)",
-      "displayName": "Native Debug Config",
+      "name": "macos-debug",
+      "displayName": "MacOS Debug Config",
       "inherits": "native-base",
-      "binaryDir": "${sourceDir}/build/native/debug",
+      "binaryDir": "${sourceDir}/build/native/macos/debug",
       "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": true
       }
     },
     {
-      "name": "release (native)",
+      "name": "windows-debug",
+      "displayName": "Windows Debug Config",
+      "inherits": "native-base",
+      "binaryDir": "${sourceDir}/build/native/windows/debug",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux Debug Config",
+      "inherits": "native-base",
+      "binaryDir": "${sourceDir}/build/native/linux/debug",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+      }
+    },
+    {
+      "name": "macos-release",
       "displayName": "Native Release Config",
       "inherits": "native-base",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/native/release",
+      "binaryDir": "${sourceDir}/build/release/macos",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -65,12 +91,16 @@
   ],
   "buildPresets": [
     {
-      "name": "debug (native)",
-      "configurePreset": "debug (native)"
+      "name": "macos-debug",
+      "configurePreset": "macos-debug"
     },
     {
-      "name": "release (native)",
-      "configurePreset": "release (native)"
+      "name": "linux-debug",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "windows-debug",
+      "configurePreset": "windows-debug"
     },
     {
       "name": "debug (web)",

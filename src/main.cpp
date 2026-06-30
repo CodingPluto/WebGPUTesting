@@ -18,13 +18,13 @@
 #include "glfw3webgpu.h"
 #include "formatted_webgpu.h"
 
-
 struct GPUContext{
   wgpu::Instance instance = {};
   wgpu::Adapter adapter = {};
   wgpu::Device device = {};
   wgpu::Queue queue = {};
   wgpu::Surface surface = {};
+  wgpu::TextureFormat surface_format = {};
 };
 struct App{
   GLFWwindow* window;
@@ -35,13 +35,10 @@ struct App{
   std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
 };
 
-
-
 long long GetTotalProgramTimeElapsedMilliseconds(App &app){
   std::chrono::time_point<std::chrono::high_resolution_clock> current_time = std::chrono::high_resolution_clock::now();
   return std::chrono::duration_cast<std::chrono::milliseconds>(current_time - app.start_time).count();
 }
-
 
 void InitaliseLogging(App &app){
   app.logger = spdlog::stdout_color_mt("app");
@@ -90,23 +87,23 @@ void StartDeviceRequest(App &app, const wgpu::DeviceDescriptor *descriptor){
 void OutputFeatures(const wgpu::SupportedFeatures &features){
   for (size_t i = 0; i < features.featureCount; ++i){
     auto feature = features.features[i];
-    spdlog::info("feature: {}", feature);
+    spdlog::trace("feature: {}", feature);
   }
 }
 void OutputLimits(const wgpu::Limits &limits){
-  spdlog::info("maxTextureDimension1D: {}", limits.maxTextureDimension1D);
-  spdlog::info("maxTextureDimension2D: {}", limits.maxTextureDimension2D);
-  spdlog::info("maxTextureDimension3D: {}", limits.maxTextureDimension3D);
-  spdlog::info("maxTextureArrayLayers: {}", limits.maxTextureArrayLayers);
+  spdlog::trace("maxTextureDimension1D: {}", limits.maxTextureDimension1D);
+  spdlog::trace("maxTextureDimension2D: {}", limits.maxTextureDimension2D);
+  spdlog::trace("maxTextureDimension3D: {}", limits.maxTextureDimension3D);
+  spdlog::trace("maxTextureArrayLayers: {}", limits.maxTextureArrayLayers);
 }
 void InspectDevice(wgpu::Device device){
   //Features
-  spdlog::info("Device features: ");
+  spdlog::trace("Device features: ");
   wgpu::SupportedFeatures features;
   device.GetFeatures(&features);
   OutputFeatures(features);
   //Limits
-  spdlog::info("Device limits: ");
+  spdlog::trace("Device limits: ");
   wgpu::Limits limits = {};
   limits.nextInChain = nullptr;
   bool success = device.GetLimits(&limits) == wgpu::Status::Success;
@@ -116,7 +113,7 @@ void InspectDevice(wgpu::Device device){
 }
 void InspectAdapter(const wgpu::Adapter &adapter){
   //Limits
-  spdlog::info("Adapter limits:");
+  spdlog::trace("Adapter limits:");
   wgpu::Limits limits = {};
   limits.nextInChain = nullptr;
   bool success = adapter.GetLimits(&limits) == wgpu::Status::Success;
@@ -124,40 +121,48 @@ void InspectAdapter(const wgpu::Adapter &adapter){
     OutputLimits(limits);
   }
   // Features
-  spdlog::info("Adapter features:");
+  spdlog::trace("Adapter features:");
   wgpu::SupportedFeatures features;
   adapter.GetFeatures(&features);
   OutputFeatures(features);
 
   // Properties
-  spdlog::info("Adapter properties:");
+  spdlog::trace("Adapter properties:");
   wgpu::AdapterInfo info = {};
   adapter.GetInfo(&info);
 
-  spdlog::info("vendorID: {}", info.vendorID);
-  spdlog::info("vendor: {}", info.vendor);
-  spdlog::info("architecture: {}", info.architecture);
-  spdlog::info("deviceID: {}", info.deviceID);
-  spdlog::info("device: {}", info.device);
-  spdlog::info("description: {}", info.description);
-  spdlog::info("subgroup minimum size: {}", info.subgroupMinSize);
-  spdlog::info("subgroup maximum size: {}", info.subgroupMaxSize);
-  spdlog::info("adapter type: {}", info.adapterType);
-  spdlog::info("backend type: {}", info.backendType);
+  spdlog::trace("vendorID: {}", info.vendorID);
+  spdlog::trace("vendor: {}", info.vendor);
+  spdlog::trace("architecture: {}", info.architecture);
+  spdlog::trace("deviceID: {}", info.deviceID);
+  spdlog::trace("device: {}", info.device);
+  spdlog::trace("description: {}", info.description);
+  spdlog::trace("subgroup minimum size: {}", info.subgroupMinSize);
+  spdlog::trace("subgroup maximum size: {}", info.subgroupMaxSize);
+  spdlog::trace("adapter type: {}", info.adapterType);
+  spdlog::trace("backend type: {}", info.backendType);
 }
 void ConfigureSurface([[maybe_unused]]GPUContext &ctx){
   //wgpu::RequestAdapterOptions adapter_options = {.nextInChain = nullptr, .compatibleSurface = app.gpu.surface};
+  spdlog::debug("Configuring Surface");
+  wgpu::SurfaceConfiguration configuration = {};
+  configuration.width = 640;
+  configuration.height = 400;
 
   wgpu::SurfaceCapabilities capabilities = {};
-  ctx.surface.GetCapabilities(ctx.adapter, &capabilities);
-  //wgpu::TextureFormat surface_format = capabilities.formatCount > 0 ? capabilities.formats[0] : wgpu::TextureFormat::BGRA8Unorm;
-  //spdlog::info("Selected texture format: {}", surface_format);
   
-
-  // wgpu::SurfaceConfiguration configuration = {.nextInChain = nullptr};
-  // surface_configuration.width = 640;
-  // surface_configuration.height = 480;
-
+  ctx.surface.GetCapabilities(ctx.adapter, &capabilities);
+  ctx.surface_format = capabilities.formatCount > 0 ? capabilities.formats[0] : wgpu::TextureFormat::BGRA8Unorm;
+  configuration.format = ctx.surface_format;
+  configuration.viewFormatCount = 0;
+  configuration.viewFormats = nullptr;
+  configuration.usage = wgpu::TextureUsage::RenderAttachment;
+  configuration.device = ctx.device;
+  configuration.presentMode = wgpu::PresentMode::Fifo;
+  configuration.alphaMode = wgpu::CompositeAlphaMode::Auto;
+  
+  ctx.surface.Configure(&configuration);
+  spdlog::debug("Configured surface");
 }
 void Initialize([[maybe_unused]]App &app){
   spdlog::info("Using Emscripten: {}", UsingEmscripten());
@@ -186,7 +191,6 @@ void Initialize([[maybe_unused]]App &app){
     spdlog::critical("Failed to create a surface for the window");
     assert(false);
   }
-  ConfigureSurface(app.gpu);
 }
 void InitializeCallbacks(App &app){
   spdlog::info("Initalization stage: {}", app.initialized_state);
@@ -219,6 +223,7 @@ void InitializeCallbacks(App &app){
   else if (app.initialized_state == InitializationState::ReceivedAdapterAndDevice){
     InspectDevice(app.gpu.device);
     app.gpu.queue = app.gpu.device.GetQueue();
+    ConfigureSurface(app.gpu);
     app.initialized_state = InitializationState::Ready;
   }
 }
@@ -227,6 +232,30 @@ void Shutdown([[maybe_unused]]App &app){
   //wgpuSurfaceUnconfigure(app.gpu.surface);
   glfwTerminate();
   spdlog::info("Shutting down.");
+}
+std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GetNextSurfaceViewData(GPUContext &ctx){
+  wgpu::SurfaceTexture surface_texture = {};
+  ctx.surface.GetCurrentTexture(&surface_texture);
+  if (surface_texture.status != wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal){
+    spdlog::critical("Couldnt't get current texture for the surface");
+    assert(false);
+    return {surface_texture, nullptr};
+  }
+
+  wgpu::TextureViewDescriptor view_descriptor = {
+    .nextInChain = nullptr,
+    .label = "Surface texture view",
+    .format = ctx.surface_format,
+    .dimension = wgpu::TextureViewDimension::e2D,
+    .baseMipLevel = 0,
+    .mipLevelCount = 1,
+    .baseArrayLayer = 0,
+    .arrayLayerCount = 1,
+    .aspect = wgpu::TextureAspect::All
+  };
+  wgpu::TextureView target_view = surface_texture.texture.CreateView(&view_descriptor);
+
+  return {surface_texture, target_view};
 }
 void Update([[maybe_unused]]App &app){
   #ifndef __EMSCRIPTEN__ 
@@ -242,6 +271,46 @@ void Update([[maybe_unused]]App &app){
   if (GetTotalProgramTimeElapsedMilliseconds(app) >= 1500){
     app.running = false;
   }
+
+
+
+  auto [surface_view, target_view] = GetNextSurfaceViewData(app.gpu);
+
+  wgpu::CommandEncoderDescriptor encoder_descriptor = {.nextInChain = nullptr, .label = "My command encoder"};
+  wgpu::CommandEncoder encoder = app.gpu.device.CreateCommandEncoder(&encoder_descriptor);
+  wgpu::RenderPassDescriptor render_pass_descriptor = {
+    .colorAttachmentCount = 1,
+    .depthStencilAttachment = nullptr,
+    .timestampWrites = nullptr
+  };
+
+  wgpu::RenderPassColorAttachment color_attachment = {
+    .view = target_view,
+    .depthSlice = wgpu::kDepthSliceUndefined,
+    .resolveTarget = nullptr,
+    .loadOp = wgpu::LoadOp::Clear,
+    .storeOp = wgpu::StoreOp::Store,
+    .clearValue = wgpu::Color{0.9, 1, 0.2, 1.0}
+  }; // resolve target for multi-sampling
+
+  render_pass_descriptor.colorAttachments = &color_attachment;
+
+  wgpu::RenderPassEncoder render_pass = encoder.BeginRenderPass(&render_pass_descriptor);
+
+  render_pass.End();
+
+  wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
+  wgpu::CommandBuffer command = encoder.Finish(&command_buffer_descriptor);
+  spdlog::info("Submitting command..");
+  app.gpu.queue.Submit(1, &command);
+  spdlog::info("Command submitted");
+    app.gpu.queue.OnSubmittedWorkDone(wgpu::CallbackMode::AllowSpontaneous,[](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
+    spdlog::info("queue work finished. Status: {} ; Message: {}\n", status, message);
+  });
+
+  #ifndef __EMSCRIPTEN__
+    app.gpu.surface.Present();
+  #endif
 }
 #ifdef __EMSCRIPTEN__
 void EmscriptenLoop(void* arg) {

@@ -2,45 +2,45 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "configure (native)",
+      "label": "configure (macos debug)",
       "type": "shell",
       "command": "cmake",
       "args": [
         "--preset",
-        "debug (native)"
+        "macos-debug"
       ]
     },
     {
-      "label": "build (native)",
+      "label": "build (macos debug)",
       "type": "shell",
       "command": "cmake",
       "args": [
         "--build",
         "--preset",
-        "debug (native)"
+        "macos-debug"
       ]
     },
     {
-      "label": "run (native)",
+      "label": "run (macos debug)",
       "type": "shell",
-      "command": "${workspaceFolder}/build/native/debug/App",
+      "command": "${workspaceFolder}/build/native/macos/debug/App",
       "problemMatcher": []
     },
     {
-      "label": "configure, build, run (native)",
+      "label": "configure, build, run (macos debug)",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "configure (native)",
-        "build (native)",
-        "run (native)"
+        "configure (macos debug)",
+        "build (macos debug)",
+        "run (macos debug)"
       ]
     },
     {
-      "label": "build, run (native)",
+      "label": "build, run (macos debug)",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "build (native)",
-        "run (native)"
+        "build (macos debug)",
+        "run (macos debug)"
       ]
     },
     {
