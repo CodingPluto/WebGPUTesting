@@ -101,8 +101,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromXlibWindow.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_X11");
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_X11
     #ifdef GLFW_EXPOSE_NATIVE_WAYLAND
@@ -118,8 +119,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromWaylandSurface.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_WAYLAND");
+        return surface;
     }
     #endif // GLFW_EXPOSE_NATIVE_WAYLAND
     #ifdef GLFW_EXPOSE_NATIVE_COCOA
@@ -136,8 +138,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromMetalLayer.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_COCOA");
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_COCOA
     #ifdef GLFW_EXPOSE_NATIVE_WIN32
@@ -153,8 +156,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromWindowsHWND.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_WIN32");
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_WIN32
     #ifdef GLFW_EXPOSE_NATIVE_EMSCRIPTEN
@@ -177,8 +181,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         #else
           surfaceDescriptor.label = NULL;
         #endif
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_EMSCRIPTEN");
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_EMSCRIPTEN
     default:

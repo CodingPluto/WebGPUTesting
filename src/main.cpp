@@ -265,7 +265,9 @@ void Update([[maybe_unused]]App &app){
   else spdlog::info("Time since program opened: {}", static_cast<long>(GetTotalProgramTimeElapsedMilliseconds(app)));
   glfwPollEvents();
   if (glfwWindowShouldClose(app.window)) app.running = false;
-
+  if (GetTotalProgramTimeElapsedMilliseconds(app) >= 5000){
+    app.running = false;
+  }
   if (app.initialized_state != InitializationState::Ready) return;
   if (GetTotalProgramTimeElapsedMilliseconds(app) >= 1500){
     app.running = false;
