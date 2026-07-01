@@ -1,6 +1,7 @@
 Hello future Chris!
 
 Prequesites for this repository:
+- clang that supports C++23
 - cmake
 - emsdk (if you want to build for web) (make sure added to path)
 - vcpkg (make sure added to path)

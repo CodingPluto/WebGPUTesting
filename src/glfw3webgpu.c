@@ -38,18 +38,20 @@
 
 #include <GLFW/glfw3.h>
 
-#if (defined(__LINUX__) && !defined(USE_X11) && !defined(USE_WAYLAND))
-  #define USE_X11
+#if (defined(__linux__) && !defined(USE_X11) && !defined(USE_WAYLAND))
   #define UNSPECIFIED_LINUX_WINDOWING_SYSTEM
 #endif
 
+#ifdef UNSPECIFIED_LINUX_WINDOWING_SYSTEM
+  #define USE_X11
+#endif
 #ifdef __EMSCRIPTEN__
   #define GLFW_EXPOSE_NATIVE_EMSCRIPTEN
   #ifndef GLFW_PLATFORM_EMSCRIPTEN // not defined in older versions of emscripten
     #define GLFW_PLATFORM_EMSCRIPTEN 0
   #endif
 #else // __EMSCRIPTEN__
-  #ifdef __LINUX__
+  #ifdef __linux__
     #ifdef USE_X11
       #define GLFW_EXPOSE_NATIVE_X11
     #endif
@@ -75,6 +77,8 @@
 #endif
 
 WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* window) {
+    spdlog::info("Attempting to create a surface");
+
   #ifdef UNSPECIFIED_LINUX_WINDOWING_SYSTEM
     spdlog::warn("Unspecified Linux Windowing System. Defaulting to use X11. Use -DUSE_X11 or -DUSE_WAYLAND when compiling to specify a Windowing System.");
   #endif
@@ -97,8 +101,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromXlibWindow.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_X11");
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_X11
     #ifdef GLFW_EXPOSE_NATIVE_WAYLAND
@@ -114,8 +119,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromWaylandSurface.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_WAYLAND");
+        return surface;
     }
     #endif // GLFW_EXPOSE_NATIVE_WAYLAND
     #ifdef GLFW_EXPOSE_NATIVE_COCOA
@@ -132,8 +138,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromMetalLayer.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_COCOA");
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_COCOA
     #ifdef GLFW_EXPOSE_NATIVE_WIN32
@@ -149,8 +156,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromWindowsHWND.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_WIN32");
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_WIN32
     #ifdef GLFW_EXPOSE_NATIVE_EMSCRIPTEN
@@ -173,8 +181,9 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         #else
           surfaceDescriptor.label = NULL;
         #endif
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_EMSCRIPTEN");
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        return surface;
       }
     #endif // GLFW_EXPOSE_NATIVE_EMSCRIPTEN
     default:
