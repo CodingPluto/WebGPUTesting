@@ -24,7 +24,9 @@ struct GPUContext{
   wgpu::Device device = {};
   wgpu::Queue queue = {};
   wgpu::Surface surface = {};
-  wgpu::TextureFormat surface_format = {};
+  wgpu::TextureFormat surface_format = wgpu::TextureFormat::Undefined;
+  wgpu::ShaderModule shader_module = {};
+  wgpu::RenderPipeline pipeline = {};
 };
 struct App{
   GLFWwindow* window;
@@ -105,7 +107,6 @@ void InspectDevice(wgpu::Device device){
   //Limits
   spdlog::trace("Device limits: ");
   wgpu::Limits limits = {};
-  limits.nextInChain = nullptr;
   bool success = device.GetLimits(&limits) == wgpu::Status::Success;
   if (success) {
     OutputLimits(limits);
@@ -115,7 +116,6 @@ void InspectAdapter(const wgpu::Adapter &adapter){
   //Limits
   spdlog::trace("Adapter limits:");
   wgpu::Limits limits = {};
-  limits.nextInChain = nullptr;
   bool success = adapter.GetLimits(&limits) == wgpu::Status::Success;
   if (success) {
     OutputLimits(limits);
@@ -166,9 +166,7 @@ void ConfigureSurface([[maybe_unused]]GPUContext &ctx){
 }
 void Initialize([[maybe_unused]]App &app){
   spdlog::info("Using Emscripten: {}", UsingEmscripten());
-  wgpu::InstanceDescriptor desc = {
-    .nextInChain = nullptr
-  };
+  wgpu::InstanceDescriptor desc = {};
   app.gpu.instance = wgpu::CreateInstance(&desc);
   if (!app.gpu.instance){
     spdlog::critical("Could not initalise WebGPU!");
@@ -192,12 +190,13 @@ void Initialize([[maybe_unused]]App &app){
     assert(false);
   }
 }
+
+void CreateShaderModule(GPUContext &ctx);
+void CreateRenderPipeline(GPUContext &ctx);
 void InitializeCallbacks(App &app){
   spdlog::info("Initalization stage: {}", app.initialized_state);
   if (app.initialized_state == InitializationState::Uninitalised) {
-    wgpu::RequestAdapterOptions adapter_options = {
-      .nextInChain = nullptr
-    };
+    wgpu::RequestAdapterOptions adapter_options = {};
     StartAdapterRequest(app, &adapter_options);
     app.initialized_state = InitializationState::RequestingAdapter;
   }
@@ -224,6 +223,8 @@ void InitializeCallbacks(App &app){
     InspectDevice(app.gpu.device);
     app.gpu.queue = app.gpu.device.GetQueue();
     ConfigureSurface(app.gpu);
+    CreateShaderModule(app.gpu);
+    CreateRenderPipeline(app.gpu);
     app.initialized_state = InitializationState::Ready;
   }
 }
@@ -266,13 +267,10 @@ void Update([[maybe_unused]]App &app){
   else spdlog::info("Time since program opened: {}", static_cast<long>(GetTotalProgramTimeElapsedMilliseconds(app)));
   glfwPollEvents();
   if (glfwWindowShouldClose(app.window)) app.running = false;
-
   if (app.initialized_state != InitializationState::Ready) return;
-  if (GetTotalProgramTimeElapsedMilliseconds(app) >= 1500){
+  if (GetTotalProgramTimeElapsedMilliseconds(app) >= 15000000){
     app.running = false;
   }
-
-
 
   auto [surface_view, target_view] = GetNextSurfaceViewData(app.gpu);
 
@@ -283,31 +281,30 @@ void Update([[maybe_unused]]App &app){
     .depthStencilAttachment = nullptr,
     .timestampWrites = nullptr
   };
-
   wgpu::RenderPassColorAttachment color_attachment = {
     .view = target_view,
     .depthSlice = wgpu::kDepthSliceUndefined,
     .resolveTarget = nullptr,
     .loadOp = wgpu::LoadOp::Clear,
     .storeOp = wgpu::StoreOp::Store,
-    .clearValue = wgpu::Color{0.9, 1, 0.2, 1.0}
+    .clearValue = wgpu::Color{0.3, 1, 0.2, 1.0}
   }; // resolve target for multi-sampling
-
   render_pass_descriptor.colorAttachments = &color_attachment;
-
   wgpu::RenderPassEncoder render_pass = encoder.BeginRenderPass(&render_pass_descriptor);
 
-  render_pass.End();
 
+  render_pass.SetPipeline(app.gpu.pipeline);
+  render_pass.Draw(3, 1, 0, 0);
+
+  render_pass.End();
   wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
   wgpu::CommandBuffer command = encoder.Finish(&command_buffer_descriptor);
   spdlog::info("Submitting command..");
   app.gpu.queue.Submit(1, &command);
   spdlog::info("Command submitted");
     app.gpu.queue.OnSubmittedWorkDone(wgpu::CallbackMode::AllowSpontaneous,[](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
-    spdlog::info("queue work finished. Status: {} ; Message: {}\n", status, message);
+    spdlog::info("queue work finished. Status: {} ; Message: {}", status, message);
   });
-
   #ifndef __EMSCRIPTEN__
     app.gpu.surface.Present();
   #endif
@@ -361,3 +358,94 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   //   queue.OnSubmittedWorkDone(wgpu::CallbackMode::AllowSpontaneous,[](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
   //   std::print("queue work finished. Status: {} ; Message: {}\n", status, message);
   // });
+
+  const char *shader_source = R"(
+    @vertex
+    fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
+        var p = vec2f(0.0, 0.0);
+        if (in_vertex_index == 0u) {
+            p = vec2f(-0.5, -0.5);
+        } else if (in_vertex_index == 1u) {
+            p = vec2f(0.5, -0.5);
+        } else {
+            p = vec2f(0.0, 0.5);
+        }
+        return vec4f(p, 0.0, 1.0);
+    }
+
+    @fragment
+    fn fs_main() -> @location(0) vec4f {
+        return vec4f(0.0, 0.4, 1.0, 1.0);
+    }
+  )";
+
+
+  void CreateShaderModule(GPUContext &ctx){
+    wgpu::ShaderModuleDescriptor shader_descriptor = {};
+
+    wgpu::ShaderSourceWGSL shader_code_descriptor = {};
+    shader_code_descriptor.nextInChain = nullptr;
+    shader_code_descriptor.sType = wgpu::SType::ShaderSourceWGSL;
+    shader_descriptor.nextInChain = &shader_code_descriptor;
+    shader_code_descriptor.code = shader_source;
+
+    ctx.shader_module = ctx.device.CreateShaderModule(&shader_descriptor);
+  }
+
+  void CreateRenderPipeline(GPUContext &ctx){
+    wgpu::RenderPipelineDescriptor pipeline_descriptor = {};
+
+
+    //Vertex Pipeline State
+    pipeline_descriptor.vertex.bufferCount = 0;
+    pipeline_descriptor.vertex.buffers = nullptr;
+    pipeline_descriptor.vertex.module = ctx.shader_module;
+    pipeline_descriptor.vertex.constantCount = 0;
+    pipeline_descriptor.vertex.constants = nullptr;
+
+
+    //Primitive Pipeline state
+    pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+    pipeline_descriptor.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
+    pipeline_descriptor.primitive.frontFace = wgpu::FrontFace::CCW;
+    pipeline_descriptor.primitive.cullMode = wgpu::CullMode::None; // Set to none for developing so stuff doesn't disappear
+
+    //Fragment Shader Stage
+    wgpu::FragmentState fragment_state = {};
+    fragment_state.module = ctx.shader_module;
+    fragment_state.entryPoint = "fs_main";
+    fragment_state.constantCount = 0;
+    fragment_state.constants = nullptr;
+
+    wgpu::BlendState blend_state = {};
+    blend_state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+    blend_state.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+    blend_state.color.operation = wgpu::BlendOperation::Add;
+    blend_state.alpha.srcFactor = wgpu::BlendFactor::Zero;
+    blend_state.alpha.dstFactor = wgpu::BlendFactor::One;
+    blend_state.alpha.operation = wgpu::BlendOperation::Add;
+
+    wgpu::ColorTargetState color_target = {};
+    color_target.format = ctx.surface_format;
+    color_target.blend = &blend_state;
+    color_target.writeMask = wgpu::ColorWriteMask::All;
+    fragment_state.targetCount = 1;
+    fragment_state.targets = &color_target;
+
+    pipeline_descriptor.fragment = &fragment_state;
+    pipeline_descriptor.depthStencil = nullptr; // used for depth buffers
+
+    //Multisampling Pipeline state
+    pipeline_descriptor.multisample.count = 1;
+    pipeline_descriptor.multisample.mask = ~0u;
+    pipeline_descriptor.multisample.alphaToCoverageEnabled = false;
+
+    ctx.pipeline = ctx.device.CreateRenderPipeline(&pipeline_descriptor);
+  }
+
+// void PlayingWithBuffers(){
+
+// }
+
+  // Learning about the GPU
+  // a buffer is a chunk of memory allocated in VRAM.
