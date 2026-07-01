@@ -1,7 +1,6 @@
 #include <iostream>
 #include <cassert>
 #include <memory>
-#include <print>
 #include <chrono>
 #include <spdlog/logger.h>
 #include <thread>

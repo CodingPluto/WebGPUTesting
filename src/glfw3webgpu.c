@@ -38,18 +38,20 @@
 
 #include <GLFW/glfw3.h>
 
-#if (defined(__LINUX__) && !defined(USE_X11) && !defined(USE_WAYLAND))
-  #define USE_X11
+#if (defined(__linux__) && !defined(USE_X11) && !defined(USE_WAYLAND))
   #define UNSPECIFIED_LINUX_WINDOWING_SYSTEM
 #endif
 
+#ifdef UNSPECIFIED_LINUX_WINDOWING_SYSTEM
+  #define USE_X11
+#endif
 #ifdef __EMSCRIPTEN__
   #define GLFW_EXPOSE_NATIVE_EMSCRIPTEN
   #ifndef GLFW_PLATFORM_EMSCRIPTEN // not defined in older versions of emscripten
     #define GLFW_PLATFORM_EMSCRIPTEN 0
   #endif
 #else // __EMSCRIPTEN__
-  #ifdef __LINUX__
+  #ifdef __linux__
     #ifdef USE_X11
       #define GLFW_EXPOSE_NATIVE_X11
     #endif
@@ -75,6 +77,8 @@
 #endif
 
 WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* window) {
+    spdlog::info("Attempting to create a surface");
+
   #ifdef UNSPECIFIED_LINUX_WINDOWING_SYSTEM
     spdlog::warn("Unspecified Linux Windowing System. Defaulting to use X11. Use -DUSE_X11 or -DUSE_WAYLAND when compiling to specify a Windowing System.");
   #endif
