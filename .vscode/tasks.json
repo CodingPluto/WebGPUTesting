@@ -27,12 +27,46 @@
       "problemMatcher": []
     },
     {
+    "label": "configure (windows debug)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--preset",
+        "windows-debug"
+      ]
+    },
+    {
+      "label": "build (windows debug)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "--preset",
+        "windows-debug"
+      ]
+    },
+    {
+      "label": "run (windows debug)",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/native/windows/debug/App",
+      "problemMatcher": []
+    },
+    {
       "label": "configure, build, run (macos debug)",
       "dependsOrder": "sequence",
       "dependsOn": [
         "configure (macos debug)",
         "build (macos debug)",
         "run (macos debug)"
+      ]
+    },
+    {
+      "label": "configure, build, run (windows debug)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "configure (windows debug)",
+        "build (windows debug)",
+        "run (windows debug)"
       ]
     },
     {
