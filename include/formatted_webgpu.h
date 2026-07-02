@@ -135,37 +135,198 @@ namespace wgpu {
 
 
 }
-
-template <>
-struct fmt::formatter<InitializationState> : fmt::formatter<std::string_view> {
-    auto format(InitializationState state, fmt::format_context& ctx) const {
-        std::string_view name = "Unknown";
-        switch (state) {
-            case InitializationState::Uninitalised:      name = "Uninitalised"; break;
-            case InitializationState::RequestingAdapter: name = "RequestingAdapter"; break;
-            case InitializationState::RequestingDevice:  name = "RequestingDevice"; break;
-            case InitializationState::ReceivedAdapterAndDevice: name = "ReceivedAdapterAndDevice"; break;
-            case InitializationState::Ready:             name = "Ready"; break;
-            case InitializationState::Failed:            name = "Failed"; break;
-        }
-        return fmt::formatter<std::string_view>::format(name, ctx);
-    }
-};
-
-template <>
-struct fmt::formatter<wgpu::RequestAdapterStatus> : fmt::formatter<std::string_view> {
-  auto format(wgpu::RequestAdapterStatus status, fmt::format_context& ctx) const {
-    std::string_view s;
-    switch (status) {
-      case wgpu::RequestAdapterStatus::Success:           s = "Success"; break;
-      case wgpu::RequestAdapterStatus::CallbackCancelled: s = "CallbackCancelled"; break;
-      case wgpu::RequestAdapterStatus::Unavailable:       s = "Unavailable"; break;
-      case wgpu::RequestAdapterStatus::Error:             s = "Error"; break;
-      default:                                            s = "UnknownRequestAdapterStatus"; break;
-    }
-    return fmt::formatter<std::string_view>::format(s, ctx);
+[[nodiscard]] constexpr std::string_view format_as(InitializationState state) noexcept {
+  switch (state) {
+    case InitializationState::Uninitalised:             return "Uninitalised";
+    case InitializationState::RequestingAdapter:        return "RequestingAdapter";
+    case InitializationState::RequestingDevice:         return "RequestingDevice";
+    case InitializationState::ReceivedAdapterAndDevice: return "ReceivedAdapterAndDevice";
+    case InitializationState::Ready:                    return "Ready";
+    case InitializationState::Failed:                   return "Failed";
   }
-};
+  return "Unknown";
+}
+
+namespace wgpu {
+
+    [[nodiscard]] constexpr std::string_view format_as(RequestAdapterStatus status) noexcept {
+        switch (status) {
+            case RequestAdapterStatus::Success:           return "Success";
+            case RequestAdapterStatus::CallbackCancelled: return "CallbackCancelled";
+            case RequestAdapterStatus::Unavailable:       return "Unavailable";
+            case RequestAdapterStatus::Error:             return "Error";
+            default:                                      return "UnknownRequestAdapterStatus";
+        }
+    }
+
+    [[nodiscard]] constexpr std::string_view format_as(QueueWorkDoneStatus status) noexcept {
+        switch (status) {
+            case QueueWorkDoneStatus::Success:           return "Success";
+            case QueueWorkDoneStatus::CallbackCancelled: return "CallbackCancelled";
+            case QueueWorkDoneStatus::Error:             return "Error";
+            default:                                     return "UnknownQueueWorkDoneStatus";
+        }
+    }
+
+    [[nodiscard]] constexpr std::string_view format_as(ErrorType type) noexcept {
+        switch (type) {
+            case ErrorType::NoError:     return "NoError";
+            case ErrorType::Validation:  return "Validation";
+            case ErrorType::OutOfMemory: return "OutOfMemory";
+            case ErrorType::Internal:    return "Internal";
+            case ErrorType::Unknown:     return "Unknown";
+            default:                     return "UnknownErrorType";
+        }
+    }
+
+    [[nodiscard]] constexpr std::string_view format_as(DeviceLostReason v) noexcept {
+        switch (v) {
+            case DeviceLostReason::Unknown:           return "Unknown";
+            case DeviceLostReason::Destroyed:         return "Destroyed";
+            case DeviceLostReason::CallbackCancelled: return "CallbackCancelled";
+            case DeviceLostReason::FailedCreation:    return "FailedCreation";
+            default:                                  return "UnknownDeviceLostReason";
+        }
+    }
+
+    [[nodiscard]] constexpr std::string_view format_as(FeatureName v) noexcept {
+        switch (v) {
+            case FeatureName::CoreFeaturesAndLimits:             return "CoreFeaturesAndLimits";
+            case FeatureName::DepthClipControl:                  return "DepthClipControl";
+            case FeatureName::Depth32FloatStencil8:              return "Depth32FloatStencil8";
+            case FeatureName::TextureCompressionBC:              return "TextureCompressionBC";
+            case FeatureName::TextureCompressionBCSliced3D:       return "TextureCompressionBCSliced3D";
+            case FeatureName::TextureCompressionETC2:            return "TextureCompressionETC2";
+            case FeatureName::TextureCompressionASTC:            return "TextureCompressionASTC";
+            case FeatureName::TextureCompressionASTCSliced3D:     return "TextureCompressionASTCSliced3D";
+            case FeatureName::TimestampQuery:                    return "TimestampQuery";
+            case FeatureName::IndirectFirstInstance:             return "IndirectFirstInstance";
+            case FeatureName::ShaderF16:                         return "ShaderF16";
+            case FeatureName::RG11B10UfloatRenderable:           return "RG11B10UfloatRenderable";
+            case FeatureName::BGRA8UnormStorage:                 return "BGRA8UnormStorage";
+            case FeatureName::Float32Filterable:                 return "Float32Filterable";
+            case FeatureName::Float32Blendable:                  return "Float32Blendable";
+            case FeatureName::ClipDistances:                     return "ClipDistances";
+            case FeatureName::DualSourceBlending:                return "DualSourceBlending";
+            case FeatureName::Subgroups:                         return "Subgroups";
+            case FeatureName::TextureFormatsTier1:               return "TextureFormatsTier1";
+            case FeatureName::TextureFormatsTier2:               return "TextureFormatsTier2";
+            case FeatureName::PrimitiveIndex:                    return "PrimitiveIndex";
+            case FeatureName::TextureComponentSwizzle:           return "TextureComponentSwizzle";
+            #ifndef __EMSCRIPTEN__
+            case FeatureName::DawnInternalUsages:                                return "DawnInternalUsages";
+            case FeatureName::DawnMultiPlanarFormats:                            return "DawnMultiPlanarFormats";
+            case FeatureName::DawnNative:                                        return "DawnNative";
+            case FeatureName::ChromiumExperimentalTimestampQueryInsidePasses:    return "ChromiumExperimentalTimestampQueryInsidePasses";
+            case FeatureName::ImplicitDeviceSynchronization:                     return "ImplicitDeviceSynchronization";
+            case FeatureName::TransientAttachments:                              return "TransientAttachments";
+            case FeatureName::MSAARenderToSingleSampled:                         return "MSAARenderToSingleSampled";
+            case FeatureName::D3D11MultithreadProtected:                         return "D3D11MultithreadProtected";
+            case FeatureName::ANGLETextureSharing:                               return "ANGLETextureSharing";
+            case FeatureName::PixelLocalStorageCoherent:                         return "PixelLocalStorageCoherent";
+            case FeatureName::PixelLocalStorageNonCoherent:                      return "PixelLocalStorageNonCoherent";
+            case FeatureName::Unorm16TextureFormats:                             return "Unorm16TextureFormats";
+            case FeatureName::MultiPlanarFormatExtendedUsages:                   return "MultiPlanarFormatExtendedUsages";
+            case FeatureName::MultiPlanarFormatP010:                             return "MultiPlanarFormatP010";
+            case FeatureName::HostMappedPointer:                                 return "HostMappedPointer";
+            case FeatureName::MultiPlanarRenderTargets:                          return "MultiPlanarRenderTargets";
+            case FeatureName::MultiPlanarFormatNv12a:                            return "MultiPlanarFormatNv12a";
+            case FeatureName::FramebufferFetch:                                  return "FramebufferFetch";
+            case FeatureName::BufferMapExtendedUsages:                           return "BufferMapExtendedUsages";
+            case FeatureName::AdapterPropertiesMemoryHeaps:                      return "AdapterPropertiesMemoryHeaps";
+            case FeatureName::AdapterPropertiesD3D:                              return "AdapterPropertiesD3D";
+            case FeatureName::AdapterPropertiesVk:                               return "AdapterPropertiesVk";
+            case FeatureName::DawnFormatCapabilities:                            return "DawnFormatCapabilities";
+            case FeatureName::DawnDrmFormatCapabilities:                         return "DawnDrmFormatCapabilities";
+            case FeatureName::MultiPlanarFormatNv16:                             return "MultiPlanarFormatNv16";
+            case FeatureName::MultiPlanarFormatNv24:                             return "MultiPlanarFormatNv24";
+            case FeatureName::MultiPlanarFormatP210:                             return "MultiPlanarFormatP210";
+            case FeatureName::MultiPlanarFormatP410:                             return "MultiPlanarFormatP410";
+            case FeatureName::SharedTextureMemoryVkDedicatedAllocation:          return "SharedTextureMemoryVkDedicatedAllocation";
+            case FeatureName::SharedTextureMemoryAHardwareBuffer:                return "SharedTextureMemoryAHardwareBuffer";
+            case FeatureName::SharedTextureMemoryDmaBuf:                         return "SharedTextureMemoryDmaBuf";
+            case FeatureName::SharedTextureMemoryOpaqueFD:                       return "SharedTextureMemoryOpaqueFD";
+            case FeatureName::SharedTextureMemoryZirconHandle:                   return "SharedTextureMemoryZirconHandle";
+            case FeatureName::SharedTextureMemoryDXGISharedHandle:               return "SharedTextureMemoryDXGISharedHandle";
+            case FeatureName::SharedTextureMemoryD3D11Texture2D:                 return "SharedTextureMemoryD3D11Texture2D";
+            case FeatureName::SharedTextureMemoryIOSurface:                       return "SharedTextureMemoryIOSurface";
+            case FeatureName::SharedTextureMemoryEGLImage:                       return "SharedTextureMemoryEGLImage";
+            case FeatureName::SharedFenceVkSemaphoreOpaqueFD:                    return "SharedFenceVkSemaphoreOpaqueFD";
+            case FeatureName::SharedFenceSyncFD:                                 return "SharedFenceSyncFD";
+            case FeatureName::SharedFenceVkSemaphoreZirconHandle:                 return "SharedFenceVkSemaphoreZirconHandle";
+            case FeatureName::SharedFenceDXGISharedHandle:                       return "SharedFenceDXGISharedHandle";
+            case FeatureName::SharedFenceMTLSharedEvent:                         return "SharedFenceMTLSharedEvent";
+            case FeatureName::SharedBufferMemoryD3D12Resource:                   return "SharedBufferMemoryD3D12Resource";
+            case FeatureName::StaticSamplers:                                    return "StaticSamplers";
+            case FeatureName::YCbCrVulkanSamplers:                               return "YCbCrVulkanSamplers";
+            case FeatureName::ShaderModuleCompilationOptions:                    return "ShaderModuleCompilationOptions";
+            case FeatureName::DawnLoadResolveTexture:                            return "DawnLoadResolveTexture";
+            case FeatureName::DawnPartialLoadResolveTexture:                     return "DawnPartialLoadResolveTexture";
+            case FeatureName::MultiDrawIndirect:                                 return "MultiDrawIndirect";
+            case FeatureName::DawnTexelCopyBufferRowAlignment:                   return "DawnTexelCopyBufferRowAlignment";
+            case FeatureName::FlexibleTextureViews:                              return "FlexibleTextureViews";
+            case FeatureName::ChromiumExperimentalSubgroupMatrix:                return "ChromiumExperimentalSubgroupMatrix";
+            case FeatureName::SharedFenceEGLSync:                                return "SharedFenceEGLSync";
+            case FeatureName::DawnDeviceAllocatorControl:                        return "DawnDeviceAllocatorControl";
+            case FeatureName::AdapterPropertiesWGPU:                             return "AdapterPropertiesWGPU";
+            case FeatureName::SharedBufferMemoryD3D12SharedMemoryFileMappingHandle: return "SharedBufferMemoryD3D12SharedMemoryFileMappingHandle";
+            case FeatureName::SharedTextureMemoryD3D12Resource:                   return "SharedTextureMemoryD3D12Resource";
+            case FeatureName::ChromiumExperimentalSamplingResourceTable:         return "ChromiumExperimentalSamplingResourceTable";
+            case FeatureName::SubgroupSizeControl:                               return "SubgroupSizeControl";
+            case FeatureName::AtomicVec2uMinMax:                                 return "AtomicVec2uMinMax";
+            case FeatureName::Unorm16FormatsForExternalTexture:                  return "Unorm16FormatsForExternalTexture";
+            case FeatureName::OpaqueYCbCrAndroidForExternalTexture:              return "OpaqueYCbCrAndroidForExternalTexture";
+            case FeatureName::Unorm16Filterable:                                 return "Unorm16Filterable";
+            case FeatureName::RenderPassRenderArea:                              return "RenderPassRenderArea";
+            case FeatureName::AdapterPropertiesDrm:                              return "AdapterPropertiesDrm";
+            #endif
+            default:                                                             return "UnknownFeature";
+        }
+    }
+
+    // Note: Since format_as functions are ideally constexpr, if you want to keep your asserts, 
+    // it's best to handle them directly. (C++14 and up allows asserts in constexpr functions)
+    inline std::string_view format_as(AdapterType v) {
+        switch (v) {
+            case AdapterType::DiscreteGPU:   return "DiscreteGPU";
+            case AdapterType::IntegratedGPU: return "IntegratedGPU";
+            case AdapterType::CPU:           return "CPU";
+            case AdapterType::Unknown:       return "Unknown";
+            default:
+                assert(false);
+                return "UnknownAdapterType";
+        }
+    }
+
+    inline std::string_view format_as(BackendType v) {
+        switch (v) {
+            case BackendType::Undefined: return "Undefined";
+            case BackendType::Null:      return "Null";
+            case BackendType::WebGPU:    return "WebGPU";
+            case BackendType::D3D11:     return "D3D11";
+            case BackendType::D3D12:     return "D3D12";
+            case BackendType::Metal:     return "Metal";
+            case BackendType::Vulkan:    return "Vulkan";
+            case BackendType::OpenGL:    return "OpenGL";
+            case BackendType::OpenGLES:  return "OpenGLES";
+            default:
+                assert(false);
+                return "UnknownBackendType";
+        }
+    }
+
+    [[nodiscard]] constexpr std::string_view format_as(MapAsyncStatus status) noexcept {
+        switch (status) {
+            case MapAsyncStatus::Success:           return "Success";
+            case MapAsyncStatus::CallbackCancelled: return "CallbackCancelled";
+            case MapAsyncStatus::Error:             return "Error";
+            case MapAsyncStatus::Aborted:           return "Aborted";
+            default:                                return "UnknownMapAsyncStatus";
+        }
+    }
+
+} // namespace wgpu
+
 
 template <>
 struct fmt::formatter<wgpu::StringView> : fmt::formatter<std::string_view> {
@@ -175,191 +336,5 @@ struct fmt::formatter<wgpu::StringView> : fmt::formatter<std::string_view> {
       view = (wgpu_str.length == WGPU_STRLEN) ? std::string_view{wgpu_str.data} : std::string_view{wgpu_str.data, wgpu_str.length};
     }
     return fmt::formatter<std::string_view>::format(view, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<wgpu::QueueWorkDoneStatus> : fmt::formatter<std::string_view> {
-  auto format(wgpu::QueueWorkDoneStatus status, fmt::format_context& ctx) const {
-    std::string_view s;
-    switch (status) {
-      case wgpu::QueueWorkDoneStatus::Success:           s = "Success"; break;
-      case wgpu::QueueWorkDoneStatus::CallbackCancelled: s = "CallbackCancelled"; break;
-      case wgpu::QueueWorkDoneStatus::Error:             s = "Error"; break;
-      default:                                           s = "UnknownQueueWorkDoneStatus"; break;
-    }
-    return fmt::formatter<std::string_view>::format(s, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<wgpu::ErrorType> : fmt::formatter<std::string_view> {
-  auto format(wgpu::ErrorType type, fmt::format_context& ctx) const {
-    std::string_view s;
-    switch (type) {
-      case wgpu::ErrorType::NoError:     s = "NoError"; break;
-      case wgpu::ErrorType::Validation:  s = "Validation"; break;
-      case wgpu::ErrorType::OutOfMemory: s = "OutOfMemory"; break;
-      case wgpu::ErrorType::Internal:    s = "Internal"; break;
-      case wgpu::ErrorType::Unknown:     s = "Unknown"; break;
-      default:                           s = "UnknownErrorType"; break;
-    }
-    return fmt::formatter<std::string_view>::format(s, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<wgpu::DeviceLostReason> : fmt::formatter<std::string_view> {
-  auto format(wgpu::DeviceLostReason v, fmt::format_context& ctx) const {
-    std::string_view s;
-    switch (v) {
-      case wgpu::DeviceLostReason::Unknown: s = "Unknown"; break;
-      case wgpu::DeviceLostReason::Destroyed: s = "Destroyed"; break;
-      case wgpu::DeviceLostReason::CallbackCancelled: s = "CallbackCancelled"; break;
-      case wgpu::DeviceLostReason::FailedCreation: s = "FailedCreation"; break;
-      default: s = "UnknownDeviceLostReason"; break;
-    }
-    return fmt::formatter<std::string_view>::format(s, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<wgpu::FeatureName> : fmt::formatter<std::string_view> {
-  auto format(wgpu::FeatureName v, fmt::format_context& ctx) const {
-    std::string_view s;
-    switch (v) {
-      case wgpu::FeatureName::CoreFeaturesAndLimits: s = "CoreFeaturesAndLimits"; break;
-      case wgpu::FeatureName::DepthClipControl: s = "DepthClipControl"; break;
-      case wgpu::FeatureName::Depth32FloatStencil8: s = "Depth32FloatStencil8"; break;
-      case wgpu::FeatureName::TextureCompressionBC: s = "TextureCompressionBC"; break;
-      case wgpu::FeatureName::TextureCompressionBCSliced3D: s = "TextureCompressionBCSliced3D"; break;
-      case wgpu::FeatureName::TextureCompressionETC2: s = "TextureCompressionETC2"; break;
-      case wgpu::FeatureName::TextureCompressionASTC: s = "TextureCompressionASTC"; break;
-      case wgpu::FeatureName::TextureCompressionASTCSliced3D: s = "TextureCompressionASTCSliced3D"; break;
-      case wgpu::FeatureName::TimestampQuery: s = "TimestampQuery"; break;
-      case wgpu::FeatureName::IndirectFirstInstance: s = "IndirectFirstInstance"; break;
-      case wgpu::FeatureName::ShaderF16: s = "ShaderF16"; break;
-      case wgpu::FeatureName::RG11B10UfloatRenderable: s = "RG11B10UfloatRenderable"; break;
-      case wgpu::FeatureName::BGRA8UnormStorage: s = "BGRA8UnormStorage"; break;
-      case wgpu::FeatureName::Float32Filterable: s = "Float32Filterable"; break;
-      case wgpu::FeatureName::Float32Blendable: s = "Float32Blendable"; break;
-      case wgpu::FeatureName::ClipDistances: s = "ClipDistances"; break;
-      case wgpu::FeatureName::DualSourceBlending: s = "DualSourceBlending"; break;
-      case wgpu::FeatureName::Subgroups: s = "Subgroups"; break;
-      case wgpu::FeatureName::TextureFormatsTier1: s = "TextureFormatsTier1"; break;
-      case wgpu::FeatureName::TextureFormatsTier2: s = "TextureFormatsTier2"; break;
-      case wgpu::FeatureName::PrimitiveIndex: s = "PrimitiveIndex"; break;
-      case wgpu::FeatureName::TextureComponentSwizzle: s = "TextureComponentSwizzle"; break;
-      #ifndef __EMSCRIPTEN__
-      case wgpu::FeatureName::DawnInternalUsages: s = "DawnInternalUsages"; break;
-      case wgpu::FeatureName::DawnMultiPlanarFormats: s = "DawnMultiPlanarFormats"; break;
-      case wgpu::FeatureName::DawnNative: s = "DawnNative"; break;
-      case wgpu::FeatureName::ChromiumExperimentalTimestampQueryInsidePasses: s = "ChromiumExperimentalTimestampQueryInsidePasses"; break;
-      case wgpu::FeatureName::ImplicitDeviceSynchronization: s = "ImplicitDeviceSynchronization"; break;
-      case wgpu::FeatureName::TransientAttachments: s = "TransientAttachments"; break;
-      case wgpu::FeatureName::MSAARenderToSingleSampled: s = "MSAARenderToSingleSampled"; break;
-      case wgpu::FeatureName::D3D11MultithreadProtected: s = "D3D11MultithreadProtected"; break;
-      case wgpu::FeatureName::ANGLETextureSharing: s = "ANGLETextureSharing"; break;
-      case wgpu::FeatureName::PixelLocalStorageCoherent: s = "PixelLocalStorageCoherent"; break;
-      case wgpu::FeatureName::PixelLocalStorageNonCoherent: s = "PixelLocalStorageNonCoherent"; break;
-      case wgpu::FeatureName::Unorm16TextureFormats: s = "Unorm16TextureFormats"; break;
-      case wgpu::FeatureName::MultiPlanarFormatExtendedUsages: s = "MultiPlanarFormatExtendedUsages"; break;
-      case wgpu::FeatureName::MultiPlanarFormatP010: s = "MultiPlanarFormatP010"; break;
-      case wgpu::FeatureName::HostMappedPointer: s = "HostMappedPointer"; break;
-      case wgpu::FeatureName::MultiPlanarRenderTargets: s = "MultiPlanarRenderTargets"; break;
-      case wgpu::FeatureName::MultiPlanarFormatNv12a: s = "MultiPlanarFormatNv12a"; break;
-      case wgpu::FeatureName::FramebufferFetch: s = "FramebufferFetch"; break;
-      case wgpu::FeatureName::BufferMapExtendedUsages: s = "BufferMapExtendedUsages"; break;
-      case wgpu::FeatureName::AdapterPropertiesMemoryHeaps: s = "AdapterPropertiesMemoryHeaps"; break;
-      case wgpu::FeatureName::AdapterPropertiesD3D: s = "AdapterPropertiesD3D"; break;
-      case wgpu::FeatureName::AdapterPropertiesVk: s = "AdapterPropertiesVk"; break;
-      case wgpu::FeatureName::DawnFormatCapabilities: s = "DawnFormatCapabilities"; break;
-      case wgpu::FeatureName::DawnDrmFormatCapabilities: s = "DawnDrmFormatCapabilities"; break;
-      case wgpu::FeatureName::MultiPlanarFormatNv16: s = "MultiPlanarFormatNv16"; break;
-      case wgpu::FeatureName::MultiPlanarFormatNv24: s = "MultiPlanarFormatNv24"; break;
-      case wgpu::FeatureName::MultiPlanarFormatP210: s = "MultiPlanarFormatP210"; break;
-      case wgpu::FeatureName::MultiPlanarFormatP410: s = "MultiPlanarFormatP410"; break;
-      case wgpu::FeatureName::SharedTextureMemoryVkDedicatedAllocation: s = "SharedTextureMemoryVkDedicatedAllocation"; break;
-      case wgpu::FeatureName::SharedTextureMemoryAHardwareBuffer: s = "SharedTextureMemoryAHardwareBuffer"; break;
-      case wgpu::FeatureName::SharedTextureMemoryDmaBuf: s = "SharedTextureMemoryDmaBuf"; break;
-      case wgpu::FeatureName::SharedTextureMemoryOpaqueFD: s = "SharedTextureMemoryOpaqueFD"; break;
-      case wgpu::FeatureName::SharedTextureMemoryZirconHandle: s = "SharedTextureMemoryZirconHandle"; break;
-      case wgpu::FeatureName::SharedTextureMemoryDXGISharedHandle: s = "SharedTextureMemoryDXGISharedHandle"; break;
-      case wgpu::FeatureName::SharedTextureMemoryD3D11Texture2D: s = "SharedTextureMemoryD3D11Texture2D"; break;
-      case wgpu::FeatureName::SharedTextureMemoryIOSurface: s = "SharedTextureMemoryIOSurface"; break;
-      case wgpu::FeatureName::SharedTextureMemoryEGLImage: s = "SharedTextureMemoryEGLImage"; break;
-      case wgpu::FeatureName::SharedFenceVkSemaphoreOpaqueFD: s = "SharedFenceVkSemaphoreOpaqueFD"; break;
-      case wgpu::FeatureName::SharedFenceSyncFD: s = "SharedFenceSyncFD"; break;
-      case wgpu::FeatureName::SharedFenceVkSemaphoreZirconHandle: s = "SharedFenceVkSemaphoreZirconHandle"; break;
-      case wgpu::FeatureName::SharedFenceDXGISharedHandle: s = "SharedFenceDXGISharedHandle"; break;
-      case wgpu::FeatureName::SharedFenceMTLSharedEvent: s = "SharedFenceMTLSharedEvent"; break;
-      case wgpu::FeatureName::SharedBufferMemoryD3D12Resource: s = "SharedBufferMemoryD3D12Resource"; break;
-      case wgpu::FeatureName::StaticSamplers: s = "StaticSamplers"; break;
-      case wgpu::FeatureName::YCbCrVulkanSamplers: s = "YCbCrVulkanSamplers"; break;
-      case wgpu::FeatureName::ShaderModuleCompilationOptions: s = "ShaderModuleCompilationOptions"; break;
-      case wgpu::FeatureName::DawnLoadResolveTexture: s = "DawnLoadResolveTexture"; break;
-      case wgpu::FeatureName::DawnPartialLoadResolveTexture: s = "DawnPartialLoadResolveTexture"; break;
-      case wgpu::FeatureName::MultiDrawIndirect: s = "MultiDrawIndirect"; break;
-      case wgpu::FeatureName::DawnTexelCopyBufferRowAlignment: s = "DawnTexelCopyBufferRowAlignment"; break;
-      case wgpu::FeatureName::FlexibleTextureViews: s = "FlexibleTextureViews"; break;
-      case wgpu::FeatureName::ChromiumExperimentalSubgroupMatrix: s = "ChromiumExperimentalSubgroupMatrix"; break;
-      case wgpu::FeatureName::SharedFenceEGLSync: s = "SharedFenceEGLSync"; break;
-      case wgpu::FeatureName::DawnDeviceAllocatorControl: s = "DawnDeviceAllocatorControl"; break;
-      case wgpu::FeatureName::AdapterPropertiesWGPU: s = "AdapterPropertiesWGPU"; break;
-      case wgpu::FeatureName::SharedBufferMemoryD3D12SharedMemoryFileMappingHandle: s = "SharedBufferMemoryD3D12SharedMemoryFileMappingHandle"; break;
-      case wgpu::FeatureName::SharedTextureMemoryD3D12Resource: s = "SharedTextureMemoryD3D12Resource"; break;
-      case wgpu::FeatureName::ChromiumExperimentalSamplingResourceTable: s = "ChromiumExperimentalSamplingResourceTable"; break;
-      case wgpu::FeatureName::SubgroupSizeControl: s = "SubgroupSizeControl"; break;
-      case wgpu::FeatureName::AtomicVec2uMinMax: s = "AtomicVec2uMinMax"; break;
-      case wgpu::FeatureName::Unorm16FormatsForExternalTexture: s = "Unorm16FormatsForExternalTexture"; break;
-      case wgpu::FeatureName::OpaqueYCbCrAndroidForExternalTexture: s = "OpaqueYCbCrAndroidForExternalTexture"; break;
-      case wgpu::FeatureName::Unorm16Filterable: s = "Unorm16Filterable"; break;
-      case wgpu::FeatureName::RenderPassRenderArea: s = "RenderPassRenderArea"; break;
-      case wgpu::FeatureName::AdapterPropertiesDrm: s = "AdapterPropertiesDrm"; break;
-      #endif
-      default: s = "UnknownFeature"; break;
-    }
-    return fmt::formatter<std::string_view>::format(s, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<wgpu::AdapterType> : fmt::formatter<std::string_view> {
-  auto format(wgpu::AdapterType v, fmt::format_context& ctx) const {
-    std::string_view s;
-    switch (v) {
-      case wgpu::AdapterType::DiscreteGPU: s = "DiscreteGPU"; break;
-      case wgpu::AdapterType::IntegratedGPU: s = "IntegratedGPU"; break;
-      case wgpu::AdapterType::CPU: s = "CPU"; break;
-      case wgpu::AdapterType::Unknown: s = "Unknown"; break;
-      default:
-        assert(false);
-        s = "UnknownAdapterType";
-        break;
-    }
-    return fmt::formatter<std::string_view>::format(s, ctx);
-  }
-};
-
-template <>
-struct fmt::formatter<wgpu::BackendType> : fmt::formatter<std::string_view> {
-  auto format(wgpu::BackendType v, fmt::format_context& ctx) const {
-    std::string_view s;
-    switch (v) {
-      case wgpu::BackendType::Undefined: s = "Undefined"; break;
-      case wgpu::BackendType::Null:      s = "Null"; break;
-      case wgpu::BackendType::WebGPU:    s = "WebGPU"; break;
-      case wgpu::BackendType::D3D11:     s = "D3D11"; break;
-      case wgpu::BackendType::D3D12:     s = "D3D12"; break;
-      case wgpu::BackendType::Metal:     s = "Metal"; break;
-      case wgpu::BackendType::Vulkan:    s = "Vulkan"; break;
-      case wgpu::BackendType::OpenGL:    s = "OpenGL"; break;
-      case wgpu::BackendType::OpenGLES:  s = "OpenGLES"; break;
-      default:
-        assert(false);
-        s = "UnknownBackendType";
-        break;
-    }
-    return fmt::formatter<std::string_view>::format(s, ctx);
   }
 };

@@ -11,8 +11,6 @@ Prequesites for this repository:
 To initalise the project and install dawn:
 vcpkg install
 
-goal for tmmrw: and the RAII wrapper for GLFW suggested by Gemini
-
 
 Web builds:
 if web builds are seemingly not updating, use
@@ -22,6 +20,7 @@ update the page.
 
 Change .clangd to whatever platform you are targeting.
 e.g. If I am targeting mac debug, change to:
+
 
 CompileFlags:
   CompilationDatabase: build/native/macos/debug

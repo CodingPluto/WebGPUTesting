@@ -1,8 +1,10 @@
+#include <cstdint>
 #include <iostream>
 #include <cassert>
 #include <memory>
 #include <chrono>
 #include <spdlog/logger.h>
+#include <string>
 #include <thread>
 
 #include <webgpu/webgpu_cpp.h>
@@ -35,19 +37,17 @@ struct App{
   std::shared_ptr<spdlog::logger> logger;
   std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
 };
-
 long long GetTotalProgramTimeElapsedMilliseconds(App &app){
   std::chrono::time_point<std::chrono::high_resolution_clock> current_time = std::chrono::high_resolution_clock::now();
   return std::chrono::duration_cast<std::chrono::milliseconds>(current_time - app.start_time).count();
 }
-
 void InitaliseLogging(App &app){
   app.logger = spdlog::stdout_color_mt("app");
   spdlog::set_default_logger(app.logger);
   spdlog::set_level(spdlog::level::debug);
-  spdlog::flush_on(spdlog::level::warn);
+  spdlog::flush_on(spdlog::level::info);
 }
-[[nodiscard]] consteval wgpu::CallbackMode AdapterCallbackMode(){
+[[nodiscard]] consteval wgpu::CallbackMode GetPlatformCallbackMode(){
   #ifdef __EMSCRIPTEN__
     return wgpu::CallbackMode::AllowSpontaneous;
   #endif
@@ -61,7 +61,7 @@ void InitaliseLogging(App &app){
 }
 void StartAdapterRequest(App &app, const wgpu::RequestAdapterOptions *options) {
   app.gpu.instance.RequestAdapter(
-    options,AdapterCallbackMode(), [&app](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, wgpu::StringView message) {
+    options,GetPlatformCallbackMode(), [&app](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, wgpu::StringView message) {
       if (status == wgpu::RequestAdapterStatus::Success) {
           app.gpu.adapter = result_adapter;
           app.initialized_state = InitializationState::RequestingDevice; 
@@ -74,7 +74,7 @@ void StartAdapterRequest(App &app, const wgpu::RequestAdapterOptions *options) {
 }
 void StartDeviceRequest(App &app, const wgpu::DeviceDescriptor *descriptor){
   app.gpu.adapter.RequestDevice(
-    descriptor, AdapterCallbackMode(), [&app](wgpu::RequestDeviceStatus status, wgpu::Device result_device, [[maybe_unused]]wgpu::StringView message) {
+    descriptor, GetPlatformCallbackMode(), [&app](wgpu::RequestDeviceStatus status, wgpu::Device result_device, [[maybe_unused]]wgpu::StringView message) {
       if (status == wgpu::RequestDeviceStatus::Success) {
         app.gpu.device = result_device;
         app.initialized_state = InitializationState::ReceivedAdapterAndDevice;
@@ -192,6 +192,7 @@ void Initialize([[maybe_unused]]App &app){
 
 void CreateShaderModule(GPUContext &ctx);
 void CreateRenderPipeline(GPUContext &ctx);
+void PlayingWithBuffers(GPUContext &ctx);
 void InitializeCallbacks(App &app){
   spdlog::info("Initalization stage: {}", app.initialized_state);
   if (app.initialized_state == InitializationState::Uninitalised) {
@@ -224,6 +225,7 @@ void InitializeCallbacks(App &app){
     ConfigureSurface(app.gpu);
     CreateShaderModule(app.gpu);
     CreateRenderPipeline(app.gpu);
+    PlayingWithBuffers(app.gpu);
     app.initialized_state = InitializationState::Ready;
   }
 }
@@ -270,7 +272,7 @@ void Update([[maybe_unused]]App &app){
     app.running = false;
   }
   if (app.initialized_state != InitializationState::Ready) return;
-  if (GetTotalProgramTimeElapsedMilliseconds(app) >= 15000000){
+  if (GetTotalProgramTimeElapsedMilliseconds(app) >= 1500){
     app.running = false;
   }
 
@@ -445,9 +447,47 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
     ctx.pipeline = ctx.device.CreateRenderPipeline(&pipeline_descriptor);
   }
 
-// void PlayingWithBuffers(){
 
-// }
+
+wgpu::Buffer buffer_2;
+
+void PlayingWithBuffers(GPUContext &ctx){
+  wgpu::BufferDescriptor buffer_descriptor = {
+    .label = "Some GPU-side data buffer",
+    .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc,
+    .size = 16,
+    .mappedAtCreation = false
+  };
+  wgpu::Buffer buffer_1 = ctx.device.CreateBuffer(&buffer_descriptor);
+  buffer_descriptor.label = "Output Buffer";
+  buffer_descriptor.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+  buffer_2 = ctx.device.CreateBuffer(&buffer_descriptor);
+  std::vector<uint8_t> numbers(16);
+  for (uint8_t i = 0; i < 16; ++i) numbers[i] = i;
+  ctx.queue.WriteBuffer(buffer_1, 0, numbers.data(), numbers.size());
+  wgpu::CommandEncoder encoder = ctx.device.CreateCommandEncoder(); // might need Default
+  encoder.CopyBufferToBuffer(buffer_1, 0, buffer_2, 0, 16);
+  wgpu::CommandBuffer command_copy = encoder.Finish();
+  ctx.queue.Submit(1, &command_copy);
+  ctx.queue.OnSubmittedWorkDone(GetPlatformCallbackMode(),[](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
+    spdlog::info("Copied data from buffer from 1 to 2?: status: [{}], message '{}'" , status, message);
+    buffer_2.MapAsync(wgpu::MapMode::Read, 0, 16, GetPlatformCallbackMode(), []([[maybe_unused]]wgpu::MapAsyncStatus status, [[maybe_unused]]wgpu::StringView message){
+      spdlog::info("Buffer 2 mapped with status: {}", status);
+      uint8_t* buffer_data = (uint8_t*)buffer_2.GetConstMappedRange(0,16);
+      std::string str = "Buffer: [";
+      for (int i = 0; i < 16; ++i){
+        str += std::to_string(buffer_data[i]) + ", ";
+      }
+      str += "]";
+      spdlog::info(str);
+      buffer_2.Unmap();
+    });
+  });
+
+}
+
 
   // Learning about the GPU
   // a buffer is a chunk of memory allocated in VRAM.
+// WriteBuffer copies the CPU side of the memory during transfer to its own location, that then it is put from there onto the GPU.
+// Can be disabled with mapping.
