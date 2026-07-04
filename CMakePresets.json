@@ -95,6 +95,10 @@
       "configurePreset": "macos-debug"
     },
     {
+      "name": "macos-release",
+      "configurePreset": "macos-release"
+    },
+    {
       "name": "linux-debug",
       "configurePreset": "linux-debug"
     },

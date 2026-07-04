@@ -212,8 +212,8 @@ namespace wgpu {
             case FeatureName::TextureFormatsTier1:               return "TextureFormatsTier1";
             case FeatureName::TextureFormatsTier2:               return "TextureFormatsTier2";
             case FeatureName::PrimitiveIndex:                    return "PrimitiveIndex";
-            case FeatureName::TextureComponentSwizzle:           return "TextureComponentSwizzle";
             #ifndef __EMSCRIPTEN__
+            case FeatureName::TextureComponentSwizzle:           return "TextureComponentSwizzle";
             case FeatureName::DawnInternalUsages:                                return "DawnInternalUsages";
             case FeatureName::DawnMultiPlanarFormats:                            return "DawnMultiPlanarFormats";
             case FeatureName::DawnNative:                                        return "DawnNative";

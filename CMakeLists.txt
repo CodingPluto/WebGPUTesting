@@ -91,6 +91,14 @@ if (EMSCRIPTEN)
   target_link_options(App PRIVATE
         -sUSE_GLFW=3
         --use-port=emdawnwebgpu
+        --preload-file ${CMAKE_SOURCE_DIR}/assets@assets/
     )
   set_target_properties(App PROPERTIES SUFFIX ".html")
 endif()
+
+add_custom_target(copy_assets ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${CMAKE_SOURCE_DIR}/assets
+      ${CMAKE_BINARY_DIR}/assets
+  COMMENT "Syncing assets..."
+)

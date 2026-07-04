@@ -1,11 +1,14 @@
 #include <cstdint>
 #include <iostream>
 #include <cassert>
+#include <iterator>
 #include <memory>
 #include <chrono>
 #include <spdlog/logger.h>
 #include <string>
 #include <thread>
+#include <fstream>
+#include <filesystem>
 
 #include <webgpu/webgpu_cpp.h>
 #ifdef __EMSCRIPTEN__
@@ -28,6 +31,10 @@ struct GPUContext{
   wgpu::TextureFormat surface_format = wgpu::TextureFormat::Undefined;
   wgpu::ShaderModule shader_module = {};
   wgpu::RenderPipeline pipeline = {};
+  std::string shader_source = {};
+  std::filesystem::file_time_type shader_last_edited = {};
+  wgpu::Buffer vertex_buffer;
+  uint32_t vertex_count = 0;
 };
 struct App{
   GLFWwindow* window;
@@ -44,7 +51,7 @@ long long GetTotalProgramTimeElapsedMilliseconds(App &app){
 void InitaliseLogging(App &app){
   app.logger = spdlog::stdout_color_mt("app");
   spdlog::set_default_logger(app.logger);
-  spdlog::set_level(spdlog::level::debug);
+  spdlog::set_level(spdlog::level::trace);
   spdlog::flush_on(spdlog::level::info);
 }
 [[nodiscard]] consteval wgpu::CallbackMode GetPlatformCallbackMode(){
@@ -96,6 +103,9 @@ void OutputLimits(const wgpu::Limits &limits){
   spdlog::trace("maxTextureDimension2D: {}", limits.maxTextureDimension2D);
   spdlog::trace("maxTextureDimension3D: {}", limits.maxTextureDimension3D);
   spdlog::trace("maxTextureArrayLayers: {}", limits.maxTextureArrayLayers);
+  spdlog::trace("maxVertexAttributes: {}", limits.maxVertexAttributes);
+  spdlog::trace("maxVertexBuffers: {}", limits.maxVertexBuffers);
+  spdlog::trace("maxVertexBuffersArrayStride: {}", limits.maxVertexBufferArrayStride);
 }
 void InspectDevice(wgpu::Device device){
   //Features
@@ -163,6 +173,8 @@ void ConfigureSurface([[maybe_unused]]GPUContext &ctx){
   ctx.surface.Configure(&configuration);
   spdlog::debug("Configured surface");
 }
+
+
 void Initialize([[maybe_unused]]App &app){
   spdlog::info("Using Emscripten: {}", UsingEmscripten());
   wgpu::InstanceDescriptor desc = {};
@@ -178,7 +190,7 @@ void Initialize([[maybe_unused]]App &app){
   }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  app.window = glfwCreateWindow(800, 1000, "WebGPU Window", NULL, NULL);
+  app.window = glfwCreateWindow(500, 500, "WebGPU Window", NULL, NULL);
   if (!app.window){
     spdlog::critical("Failed to open Window");
     assert(false);
@@ -209,6 +221,14 @@ void InitializeCallbacks(App &app){
     device_descriptor.requiredLimits = nullptr;
     device_descriptor.defaultQueue.nextInChain = nullptr;
     device_descriptor.defaultQueue.label = WGPUStringView{.data = "DefaultQueue",.length = WGPU_STRLEN};
+    wgpu::Limits limits = {};
+    limits.maxVertexAttributes = 8;
+    limits.maxVertexBuffers = 4;
+    limits.maxBufferSize = 6 * 10 * sizeof(float);
+    limits.maxVertexBufferArrayStride = 10 * sizeof(float);
+    limits.maxInterStageShaderVariables = 3;
+    device_descriptor.requiredLimits = &limits;
+
     device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
       spdlog::warn("Device lost. reason: {}", reason);
       if (message.data && message.length > 0) spdlog::info("({})", message);
@@ -259,6 +279,18 @@ std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GetNextSurfaceViewData(GPUCon
 
   return {surface_texture, target_view};
 }
+
+void HotReloadShaders(GPUContext &ctx){
+  CreateShaderModule(ctx);
+  CreateRenderPipeline(ctx);
+}
+std::filesystem::file_time_type GetFileLastEdited(const std::string &path){
+  std::error_code ec = {};
+  auto current = std::filesystem::last_write_time(path,ec);
+  return current;
+}
+
+
 void Update([[maybe_unused]]App &app){
   #ifndef __EMSCRIPTEN__ 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
@@ -268,13 +300,14 @@ void Update([[maybe_unused]]App &app){
   else spdlog::info("Time since program opened: {}", static_cast<long>(GetTotalProgramTimeElapsedMilliseconds(app)));
   glfwPollEvents();
   if (glfwWindowShouldClose(app.window)) app.running = false;
-  if (GetTotalProgramTimeElapsedMilliseconds(app) >= 5000){
-    app.running = false;
-  }
   if (app.initialized_state != InitializationState::Ready) return;
-  if (GetTotalProgramTimeElapsedMilliseconds(app) >= 1500){
+  if (app.gpu.shader_last_edited != GetFileLastEdited("assets/shader.wgsl")){
+    HotReloadShaders(app.gpu);
+  }
+  if (UsingEmscripten() && GetTotalProgramTimeElapsedMilliseconds(app) >= 1500){
     app.running = false;
   }
+
 
   auto [surface_view, target_view] = GetNextSurfaceViewData(app.gpu);
 
@@ -291,14 +324,15 @@ void Update([[maybe_unused]]App &app){
     .resolveTarget = nullptr,
     .loadOp = wgpu::LoadOp::Clear,
     .storeOp = wgpu::StoreOp::Store,
-    .clearValue = wgpu::Color{0.3, 1, 0.2, 1.0}
+    .clearValue = wgpu::Color{0.05, 0.05, 0.05, 1.0}
   }; // resolve target for multi-sampling
   render_pass_descriptor.colorAttachments = &color_attachment;
   wgpu::RenderPassEncoder render_pass = encoder.BeginRenderPass(&render_pass_descriptor);
 
 
   render_pass.SetPipeline(app.gpu.pipeline);
-  render_pass.Draw(3, 1, 0, 0);
+  render_pass.SetVertexBuffer(0, app.gpu.vertex_buffer, 0, app.gpu.vertex_buffer.GetSize());
+  render_pass.Draw(app.gpu.vertex_count, 1, 0,0);
 
   render_pass.End();
   wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
@@ -363,89 +397,116 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   //   std::print("queue work finished. Status: {} ; Message: {}\n", status, message);
   // });
 
-  const char *shader_source = R"(
-    @vertex
-    fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
-        var p = vec2f(0.0, 0.0);
-        if (in_vertex_index == 0u) {
-            p = vec2f(-0.5, -0.5);
-        } else if (in_vertex_index == 1u) {
-            p = vec2f(0.5, -0.5);
-        } else {
-            p = vec2f(0.0, 0.5);
-        }
-        return vec4f(p, 0.0, 1.0);
-    }
-
-    @fragment
-    fn fs_main() -> @location(0) vec4f {
-        return vec4f(0.0, 0.4, 1.0, 1.0);
-    }
-  )";
-
-
-  void CreateShaderModule(GPUContext &ctx){
-    wgpu::ShaderModuleDescriptor shader_descriptor = {};
-
-    wgpu::ShaderSourceWGSL shader_code_descriptor = {};
-    shader_code_descriptor.nextInChain = nullptr;
-    shader_code_descriptor.sType = wgpu::SType::ShaderSourceWGSL;
-    shader_descriptor.nextInChain = &shader_code_descriptor;
-    shader_code_descriptor.code = shader_source;
-
-    ctx.shader_module = ctx.device.CreateShaderModule(&shader_descriptor);
+std::string ReadFileToString(const std::string& path){
+  std::ifstream file(path, std::ios::binary);
+  if (!file){
+    spdlog::warn("Failed to open and read file: {}", path);
+    spdlog::warn("Returning empty string.");
+    return std::string();
   }
-
-  void CreateRenderPipeline(GPUContext &ctx){
-    wgpu::RenderPipelineDescriptor pipeline_descriptor = {};
-
-
-    //Vertex Pipeline State
-    pipeline_descriptor.vertex.bufferCount = 0;
-    pipeline_descriptor.vertex.buffers = nullptr;
-    pipeline_descriptor.vertex.module = ctx.shader_module;
-    pipeline_descriptor.vertex.constantCount = 0;
-    pipeline_descriptor.vertex.constants = nullptr;
+  return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
 
 
-    //Primitive Pipeline state
-    pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
-    pipeline_descriptor.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
-    pipeline_descriptor.primitive.frontFace = wgpu::FrontFace::CCW;
-    pipeline_descriptor.primitive.cullMode = wgpu::CullMode::None; // Set to none for developing so stuff doesn't disappear
 
-    //Fragment Shader Stage
-    wgpu::FragmentState fragment_state = {};
-    fragment_state.module = ctx.shader_module;
-    fragment_state.entryPoint = "fs_main";
-    fragment_state.constantCount = 0;
-    fragment_state.constants = nullptr;
+void CreateShaderModule(GPUContext &ctx){
+  ctx.shader_source = ReadFileToString("assets/shader.wgsl");
+  ctx.shader_last_edited = GetFileLastEdited("assets/shader.wgsl");
+  spdlog::trace("Shader source: {}", ctx.shader_source);
+  wgpu::ShaderModuleDescriptor shader_descriptor = {};
 
-    wgpu::BlendState blend_state = {};
-    blend_state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-    blend_state.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-    blend_state.color.operation = wgpu::BlendOperation::Add;
-    blend_state.alpha.srcFactor = wgpu::BlendFactor::Zero;
-    blend_state.alpha.dstFactor = wgpu::BlendFactor::One;
-    blend_state.alpha.operation = wgpu::BlendOperation::Add;
+  wgpu::ShaderSourceWGSL shader_code_descriptor = {};
+  shader_code_descriptor.nextInChain = nullptr;
+  shader_code_descriptor.sType = wgpu::SType::ShaderSourceWGSL;
+  shader_descriptor.nextInChain = &shader_code_descriptor;
+  shader_code_descriptor.code = ctx.shader_source.c_str();
 
-    wgpu::ColorTargetState color_target = {};
-    color_target.format = ctx.surface_format;
-    color_target.blend = &blend_state;
-    color_target.writeMask = wgpu::ColorWriteMask::All;
-    fragment_state.targetCount = 1;
-    fragment_state.targets = &color_target;
+  ctx.shader_module = ctx.device.CreateShaderModule(&shader_descriptor);
+}
 
-    pipeline_descriptor.fragment = &fragment_state;
-    pipeline_descriptor.depthStencil = nullptr; // used for depth buffers
+enum VertexAttributeType{
+  Position = 0,
+  Color = 1
+};
+void CreateRenderPipeline(GPUContext &ctx){
+  wgpu::RenderPipelineDescriptor pipeline_descriptor = {};
 
-    //Multisampling Pipeline state
-    pipeline_descriptor.multisample.count = 1;
-    pipeline_descriptor.multisample.mask = ~0u;
-    pipeline_descriptor.multisample.alphaToCoverageEnabled = false;
+  //Vertex Pipeline State
+  std::vector<float> vertex_data = {
+    -1.0, -1.0, 1.0, 0.0, 0.0,
+    1.0, -1.0, 0.0, 1.0, 0.0,
+    +0.0,   +1.0, 0.0, 0.0, 1.0
+  };
+  const int kDataEntriesPerVertex = 5;
+  ctx.vertex_count = static_cast<uint32_t>(vertex_data.size() / kDataEntriesPerVertex); // cause two floats per vertex
+  wgpu::BufferDescriptor buffer_descriptor = {
+    .label = "VertexBuffer",
+    .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex,
+    .size = vertex_data.size() * sizeof(float),
+    .mappedAtCreation = false
+  };
+  ctx.vertex_buffer = ctx.device.CreateBuffer(&buffer_descriptor);
+  ctx.queue.WriteBuffer(ctx.vertex_buffer, 0, vertex_data.data(), buffer_descriptor.size);
+  pipeline_descriptor.vertex.bufferCount = 1;
+  wgpu::VertexBufferLayout vertex_buffer_layout = {};
 
-    ctx.pipeline = ctx.device.CreateRenderPipeline(&pipeline_descriptor);
-  }
+  std::vector<wgpu::VertexAttribute> vertex_attributes(2);
+  vertex_attributes[VertexAttributeType::Position].shaderLocation = 0;
+  vertex_attributes[VertexAttributeType::Position].format = wgpu::VertexFormat::Float32x2;
+  vertex_attributes[VertexAttributeType::Position].offset = 0;
+  vertex_attributes[VertexAttributeType::Color].shaderLocation = 1;
+  vertex_attributes[VertexAttributeType::Color].format = wgpu::VertexFormat::Float32x3;
+  vertex_attributes[VertexAttributeType::Color].offset = 2 * sizeof(float);
+
+  vertex_buffer_layout.attributeCount = static_cast<uint32_t>(vertex_attributes.size());
+  vertex_buffer_layout.attributes = vertex_attributes.data();
+  vertex_buffer_layout.arrayStride = kDataEntriesPerVertex * sizeof(float);
+  vertex_buffer_layout.stepMode = wgpu::VertexStepMode::Vertex;
+  pipeline_descriptor.vertex.buffers = &vertex_buffer_layout;
+  pipeline_descriptor.vertex.module = ctx.shader_module;
+  pipeline_descriptor.vertex.constantCount = 0;
+  pipeline_descriptor.vertex.constants = nullptr;
+
+
+
+  //Primitive Pipeline state
+  pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
+  pipeline_descriptor.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined;
+  pipeline_descriptor.primitive.frontFace = wgpu::FrontFace::CCW;
+  pipeline_descriptor.primitive.cullMode = wgpu::CullMode::None; // Set to none for developing so stuff doesn't disappear
+
+  //Fragment Shader Stage
+  wgpu::FragmentState fragment_state = {};
+  fragment_state.module = ctx.shader_module;
+  fragment_state.entryPoint = "fs_main";
+  fragment_state.constantCount = 0;
+  fragment_state.constants = nullptr;
+
+  wgpu::BlendState blend_state = {};
+  blend_state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
+  blend_state.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+  blend_state.color.operation = wgpu::BlendOperation::Add;
+  blend_state.alpha.srcFactor = wgpu::BlendFactor::Zero;
+  blend_state.alpha.dstFactor = wgpu::BlendFactor::One;
+  blend_state.alpha.operation = wgpu::BlendOperation::Add;
+
+  wgpu::ColorTargetState color_target = {};
+  color_target.format = ctx.surface_format;
+  color_target.blend = &blend_state;
+  color_target.writeMask = wgpu::ColorWriteMask::All;
+  fragment_state.targetCount = 1;
+  fragment_state.targets = &color_target;
+
+  pipeline_descriptor.fragment = &fragment_state;
+  pipeline_descriptor.depthStencil = nullptr; // used for depth buffers
+
+  //Multisampling Pipeline state
+  pipeline_descriptor.multisample.count = 1;
+  pipeline_descriptor.multisample.mask = ~0u;
+  pipeline_descriptor.multisample.alphaToCoverageEnabled = false;
+
+  ctx.pipeline = ctx.device.CreateRenderPipeline(&pipeline_descriptor);
+}
 
 
 
@@ -487,7 +548,7 @@ void PlayingWithBuffers(GPUContext &ctx){
 }
 
 
-  // Learning about the GPU
-  // a buffer is a chunk of memory allocated in VRAM.
+// Learning about the GPU
+// a buffer is a chunk of memory allocated in VRAM.
 // WriteBuffer copies the CPU side of the memory during transfer to its own location, that then it is put from there onto the GPU.
 // Can be disabled with mapping.
