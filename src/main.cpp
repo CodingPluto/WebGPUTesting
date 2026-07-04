@@ -33,8 +33,9 @@ struct GPUContext{
   wgpu::RenderPipeline pipeline = {};
   std::string shader_source = {};
   std::filesystem::file_time_type shader_last_edited = {};
-  wgpu::Buffer vertex_buffer;
-  uint32_t vertex_count = 0;
+  wgpu::Buffer point_buffer = {};
+  wgpu::Buffer index_buffer = {};
+  uint32_t index_count = 0;
 };
 struct App{
   GLFWwindow* window;
@@ -331,8 +332,9 @@ void Update([[maybe_unused]]App &app){
 
 
   render_pass.SetPipeline(app.gpu.pipeline);
-  render_pass.SetVertexBuffer(0, app.gpu.vertex_buffer, 0, app.gpu.vertex_buffer.GetSize());
-  render_pass.Draw(app.gpu.vertex_count, 1, 0,0);
+  render_pass.SetVertexBuffer(0, app.gpu.point_buffer, 0, app.gpu.point_buffer.GetSize());
+  render_pass.SetIndexBuffer(app.gpu.index_buffer, wgpu::IndexFormat::Uint16, 0, app.gpu.index_buffer.GetSize());
+  render_pass.DrawIndexed(app.gpu.index_count, 1, 0,0, 0);
 
   render_pass.End();
   wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
@@ -432,21 +434,39 @@ void CreateRenderPipeline(GPUContext &ctx){
   wgpu::RenderPipelineDescriptor pipeline_descriptor = {};
 
   //Vertex Pipeline State
-  std::vector<float> vertex_data = {
-    -1.0, -1.0, 1.0, 0.0, 0.0,
-    1.0, -1.0, 0.0, 1.0, 0.0,
-    +0.0,   +1.0, 0.0, 0.0, 1.0
+  std::vector<float> point_data = {
+    -0.8, -0.8, 1.0, 1.0, 1.0,
+    0.8, -0.8, 1.0, 1.0, 1.0,
+    0.8, 0.8, 1.0, 1.0, 1.0,
+    -0.8, 0.8, 1.0, 1.0, 1.0
   };
+
+  std::vector<uint16_t> index_data = {
+    0 , 1, 2, // Triangle 0 connects points 0, 1, 2
+    0, 2, 3 // Triangle 1 connects points 0, 2, and 3
+  };
+  index_data.resize((index_data.size() + 1) & ~1); // Round up to a multiple of 2 bytes.
+
   const int kDataEntriesPerVertex = 5;
-  ctx.vertex_count = static_cast<uint32_t>(vertex_data.size() / kDataEntriesPerVertex); // cause two floats per vertex
-  wgpu::BufferDescriptor buffer_descriptor = {
-    .label = "VertexBuffer",
+
+  wgpu::BufferDescriptor point_buffer_descriptor = {
+    .label = "PointBuffer",
     .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex,
-    .size = vertex_data.size() * sizeof(float),
+    .size = ((point_data.size() * sizeof(float)) + 3) & ~3,
     .mappedAtCreation = false
   };
-  ctx.vertex_buffer = ctx.device.CreateBuffer(&buffer_descriptor);
-  ctx.queue.WriteBuffer(ctx.vertex_buffer, 0, vertex_data.data(), buffer_descriptor.size);
+  ctx.point_buffer = ctx.device.CreateBuffer(&point_buffer_descriptor);
+  ctx.queue.WriteBuffer(ctx.point_buffer, 0, point_data.data(), point_buffer_descriptor.size);
+
+  ctx.index_count = static_cast<uint32_t>(index_data.size());
+  wgpu::BufferDescriptor index_buffer_descriptor = {
+    .label = "IndexBuffer",
+    .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index,
+    .size = ((index_data.size() * sizeof(uint16_t)) + 3) & ~3, // Rounds up to a multiple of 4 bytes
+    .mappedAtCreation = false
+  };
+  ctx.index_buffer = ctx.device.CreateBuffer(&index_buffer_descriptor);
+  ctx.queue.WriteBuffer(ctx.index_buffer, 0, index_data.data(), index_buffer_descriptor.size);
   pipeline_descriptor.vertex.bufferCount = 1;
   wgpu::VertexBufferLayout vertex_buffer_layout = {};
 

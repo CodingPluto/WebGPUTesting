@@ -7,7 +7,7 @@ struct VertexOutput{
 fn vs_main(@location(0) position: vec2f, @location(1) color: vec3f) -> VertexOutput{
   var out : VertexOutput;
   out.position = vec4f(position.x, position.y, 0.0, 1.0);
-  out.color = color;
+  out.color = vec3f(color.x, color.y, color.z);
   return out;
 }
 @fragment

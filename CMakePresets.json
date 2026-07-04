@@ -53,7 +53,7 @@
       "displayName": "Native Release Config",
       "inherits": "native-base",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/release/macos",
+      "binaryDir": "${sourceDir}/build/native/macos/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
