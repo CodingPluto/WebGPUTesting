@@ -215,7 +215,7 @@ static ScrollingState scrolling_state_vertical = kMovingUp;
 static ScrollingState scrolling_state_horiziontal = kMovingRight;
 void GPUContext::Update(float delta_time, double total_time_elapsed_){
   #ifndef __EMSCRIPTEN__
-    std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(16));
     instance_.ProcessEvents();
   #endif
   if (initialized_state_ != InitializationState::Ready){
