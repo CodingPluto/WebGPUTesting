@@ -55,7 +55,7 @@
 #ifdef __APPLE__
 #    define GLFW_EXPOSE_NATIVE_COCOA
 #endif
-#  ifdef _GLFW_WIN32
+#  ifdef _WIN32
 #    define GLFW_EXPOSE_NATIVE_WIN32
 #  endif
 #endif // __EMSCRIPTEN__
@@ -68,6 +68,8 @@
 #ifndef __EMSCRIPTEN__
 #  include <GLFW/glfw3native.h>
 #endif
+
+
 
 WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* window) {
 #ifndef __EMSCRIPTEN__
@@ -155,9 +157,8 @@ WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* windo
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromWindowsHWND.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_WIN32");
+        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
     }
 #endif // GLFW_EXPOSE_NATIVE_WIN32
 

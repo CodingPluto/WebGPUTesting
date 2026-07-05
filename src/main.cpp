@@ -18,6 +18,7 @@
 #include "glfw3webgpu.h"
 #include "formatted_webgpu.h"
 
+
 struct GPUContext{
   wgpu::Instance instance = {};
   wgpu::Adapter adapter = {};
@@ -43,7 +44,7 @@ long long GetTotalProgramTimeElapsedMilliseconds(App &app){
 void InitaliseLogging(App &app){
   app.logger = spdlog::stdout_color_mt("app");
   spdlog::set_default_logger(app.logger);
-  spdlog::set_level(spdlog::level::debug);
+  spdlog::set_level(spdlog::level::trace);
   spdlog::flush_on(spdlog::level::warn);
 }
 [[nodiscard]] consteval wgpu::CallbackMode AdapterCallbackMode(){
@@ -166,6 +167,11 @@ void ConfigureSurface([[maybe_unused]]GPUContext &ctx){
 }
 void Initialize([[maybe_unused]]App &app){
   spdlog::info("Using Emscripten: {}", UsingEmscripten());
+  #ifdef PRELOAD_D3D_COMPILER
+    spdlog::info("Preloading D3DCompiler");
+    LoadLibraryW(L"d3dcompiler_47.dll");
+    spdlog::info("Preloaded D3DCompiler");
+  #endif
   wgpu::InstanceDescriptor desc = {
     .nextInChain = nullptr
   };
