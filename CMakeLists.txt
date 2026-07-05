@@ -20,10 +20,12 @@ if (NOT EMSCRIPTEN)
   find_package(glfw3 CONFIG REQUIRED)
 endif()
 
+find_package(spdlog CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+
 add_executable(App src/main.cpp src/glfw3webgpu.c)
 
-find_package(spdlog CONFIG REQUIRED)
-
+target_link_libraries(App PRIVATE glm::glm)
 
 if (APPLE)
   set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-x objective-c++ -w")

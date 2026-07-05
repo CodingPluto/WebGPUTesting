@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <glm/fwd.hpp>
 #include <iostream>
 #include <cassert>
 #include <iterator>
@@ -10,7 +11,9 @@
 #include <fstream>
 #include <filesystem>
 
+#include <webgpu/webgpu.h>
 #include <webgpu/webgpu_cpp.h>
+#include <glm/glm.hpp>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #else
@@ -21,6 +24,23 @@
 
 #include "glfw3webgpu.h"
 #include "formatted_webgpu.h"
+
+const float kDefaultDeltaTime = 0.016;
+
+struct Uniforms {
+  glm::f32 time; // at byte offset 0
+  glm::f32 delta_time; // at byte offset 4
+  std::array<glm::f32, 2> padding = {};
+};
+enum VertexAttributeType{
+  kPosition = 0,
+  kColor = 1
+};
+enum BindingType{
+  kUniforms = 0,
+  kComputeInput = 1,
+  kComputeOutput = 2
+};
 
 struct GPUContext{
   wgpu::Instance instance = {};
@@ -35,19 +55,86 @@ struct GPUContext{
   std::filesystem::file_time_type shader_last_edited = {};
   wgpu::Buffer point_buffer = {};
   wgpu::Buffer index_buffer = {};
+  wgpu::Buffer uniform_buffer = {};
   uint32_t index_count = 0;
+  wgpu::PipelineLayout pipeline_layout = {};
+  wgpu::BindGroupLayout bind_group_layout = {};
+  wgpu::BindGroup bind_group = {};
+  wgpu::Buffer buffer_2 = {};
+  wgpu::ComputePipeline compute_pipeline = {};
+
+  //wgpu::ShaderModule computer_shader_module = {};
 };
 struct App{
   GLFWwindow* window;
-  GPUContext gpu;
+  GPUContext gpu = {};
   bool running = true;
   InitializationState initialized_state = InitializationState::Uninitalised;
-  std::shared_ptr<spdlog::logger> logger;
-  std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
+  std::shared_ptr<spdlog::logger> logger = {};
+  std::chrono::time_point<std::chrono::high_resolution_clock> start_time = {};
+  std::chrono::time_point<std::chrono::high_resolution_clock> last_frame_time = {};
+  double total_time_elapsed = 0;
+  float delta_time = kDefaultDeltaTime;
 };
-long long GetTotalProgramTimeElapsedMilliseconds(App &app){
-  std::chrono::time_point<std::chrono::high_resolution_clock> current_time = std::chrono::high_resolution_clock::now();
-  return std::chrono::duration_cast<std::chrono::milliseconds>(current_time - app.start_time).count();
+
+bool LoadGeometry(
+    const std::filesystem::path& path,
+    std::vector<float>& pointData,
+    std::vector<uint16_t>& indexData
+) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    pointData.clear();
+    indexData.clear();
+
+    enum class Section {
+        None,
+        Points,
+        Indices,
+    };
+    Section currentSection = Section::None;
+
+    float value;
+    uint16_t index;
+    std::string line;
+    while (!file.eof()) {
+        getline(file, line);
+        
+        // overcome the `CRLF` problem
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        
+        if (line == "[points]") {
+            currentSection = Section::Points;
+        }
+        else if (line == "[indices]") {
+            currentSection = Section::Indices;
+        }
+        else if (line[0] == '#' || line.empty()) {
+            // Do nothing, this is a comment
+        }
+        else if (currentSection == Section::Points) {
+            std::istringstream iss(line);
+            // Get x, y, r, g, b
+            for (int i = 0; i < 5; ++i) {
+                iss >> value;
+                pointData.push_back(value);
+            }
+        }
+        else if (currentSection == Section::Indices) {
+            std::istringstream iss(line);
+            // Get corners #0 #1 and #2
+            for (int i = 0; i < 3; ++i) {
+                iss >> index;
+                indexData.push_back(index);
+            }
+        }
+    }
+    return true;
 }
 void InitaliseLogging(App &app){
   app.logger = spdlog::stdout_color_mt("app");
@@ -107,6 +194,9 @@ void OutputLimits(const wgpu::Limits &limits){
   spdlog::trace("maxVertexAttributes: {}", limits.maxVertexAttributes);
   spdlog::trace("maxVertexBuffers: {}", limits.maxVertexBuffers);
   spdlog::trace("maxVertexBuffersArrayStride: {}", limits.maxVertexBufferArrayStride);
+  spdlog::trace("maxBindGroups: {}", limits.maxBindGroups);
+  spdlog::trace("maxUniformBuffersPerShaderStage: {}", limits.maxUniformBuffersPerShaderStage);
+  spdlog::trace("maxUniformBufferBindingSize: {}", limits.maxUniformBufferBindingSize);
 }
 void InspectDevice(wgpu::Device device){
   //Features
@@ -174,8 +264,6 @@ void ConfigureSurface([[maybe_unused]]GPUContext &ctx){
   ctx.surface.Configure(&configuration);
   spdlog::debug("Configured surface");
 }
-
-
 void Initialize([[maybe_unused]]App &app){
   spdlog::info("Using Emscripten: {}", UsingEmscripten());
   wgpu::InstanceDescriptor desc = {};
@@ -202,9 +290,9 @@ void Initialize([[maybe_unused]]App &app){
     assert(false);
   }
 }
-
-void CreateShaderModule(GPUContext &ctx);
+void CreateShaderModules(GPUContext &ctx);
 void CreateRenderPipeline(GPUContext &ctx);
+void CreateComputePipeline(GPUContext &ctx);
 void PlayingWithBuffers(GPUContext &ctx);
 void InitializeCallbacks(App &app){
   spdlog::info("Initalization stage: {}", app.initialized_state);
@@ -228,6 +316,9 @@ void InitializeCallbacks(App &app){
     limits.maxBufferSize = 6 * 10 * sizeof(float);
     limits.maxVertexBufferArrayStride = 10 * sizeof(float);
     limits.maxInterStageShaderVariables = 3;
+    limits.maxBindGroups = 1;
+    limits.maxUniformBuffersPerShaderStage = 1;
+    limits.maxUniformBufferBindingSize = 16 * 4;
     device_descriptor.requiredLimits = &limits;
 
     device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
@@ -244,8 +335,9 @@ void InitializeCallbacks(App &app){
     InspectDevice(app.gpu.device);
     app.gpu.queue = app.gpu.device.GetQueue();
     ConfigureSurface(app.gpu);
-    CreateShaderModule(app.gpu);
+    CreateShaderModules(app.gpu);
     CreateRenderPipeline(app.gpu);
+    CreateComputePipeline(app.gpu);
     PlayingWithBuffers(app.gpu);
     app.initialized_state = InitializationState::Ready;
   }
@@ -280,35 +372,42 @@ std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GetNextSurfaceViewData(GPUCon
 
   return {surface_texture, target_view};
 }
-
 void HotReloadShaders(GPUContext &ctx){
-  CreateShaderModule(ctx);
+  CreateShaderModules(ctx);
   CreateRenderPipeline(ctx);
+  CreateComputePipeline(ctx);
 }
 std::filesystem::file_time_type GetFileLastEdited(const std::string &path){
   std::error_code ec = {};
   auto current = std::filesystem::last_write_time(path,ec);
   return current;
 }
-
-
 void Update([[maybe_unused]]App &app){
-  #ifndef __EMSCRIPTEN__ 
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  #ifndef __EMSCRIPTEN__
+    //std::this_thread::sleep_for(std::chrono::milliseconds(16));
     app.gpu.instance.ProcessEvents();
   #endif
+  auto current_time = std::chrono::high_resolution_clock::now();
+  double delta_time = std::chrono::duration<float>(current_time - app.last_frame_time).count();
+  app.last_frame_time = current_time;
+  app.total_time_elapsed += delta_time;
+  spdlog::trace("DeltaTime: {}", delta_time);
   if (app.initialized_state != InitializationState::Ready) InitializeCallbacks(app);
-  else spdlog::info("Time since program opened: {}", static_cast<long>(GetTotalProgramTimeElapsedMilliseconds(app)));
+  else spdlog::info("Time since program opened: {}", static_cast<double>(app.total_time_elapsed));
   glfwPollEvents();
   if (glfwWindowShouldClose(app.window)) app.running = false;
   if (app.initialized_state != InitializationState::Ready) return;
   if (app.gpu.shader_last_edited != GetFileLastEdited("assets/shader.wgsl")){
     HotReloadShaders(app.gpu);
   }
-  if (UsingEmscripten() && GetTotalProgramTimeElapsedMilliseconds(app) >= 1500){
+  if (UsingEmscripten() && app.total_time_elapsed >= 1500){
     app.running = false;
   }
-
+  Uniforms uniforms = {
+    .time = static_cast<float>(app.total_time_elapsed),
+    .delta_time = (glm::f32)delta_time
+  };
+  app.gpu.queue.WriteBuffer(app.gpu.uniform_buffer, 0, &uniforms, sizeof(kUniforms));
 
   auto [surface_view, target_view] = GetNextSurfaceViewData(app.gpu);
 
@@ -330,13 +429,21 @@ void Update([[maybe_unused]]App &app){
   render_pass_descriptor.colorAttachments = &color_attachment;
   wgpu::RenderPassEncoder render_pass = encoder.BeginRenderPass(&render_pass_descriptor);
 
-
   render_pass.SetPipeline(app.gpu.pipeline);
   render_pass.SetVertexBuffer(0, app.gpu.point_buffer, 0, app.gpu.point_buffer.GetSize());
   render_pass.SetIndexBuffer(app.gpu.index_buffer, wgpu::IndexFormat::Uint16, 0, app.gpu.index_buffer.GetSize());
+  render_pass.SetBindGroup(0, app.gpu.bind_group, 0, nullptr);
   render_pass.DrawIndexed(app.gpu.index_count, 1, 0,0, 0);
-
   render_pass.End();
+
+  wgpu::ComputePassDescriptor compute_pass_descriptor = {.timestampWrites = nullptr};
+  wgpu::ComputePassEncoder compute_pass = encoder.BeginComputePass(&compute_pass_descriptor);
+  compute_pass.SetPipeline(app.gpu.compute_pipeline);
+  // Set Bind Group here
+  compute_pass.DispatchWorkgroups(1,1,1);
+  compute_pass.End();
+  
+  
   wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
   wgpu::CommandBuffer command = encoder.Finish(&command_buffer_descriptor);
   spdlog::info("Submitting command..");
@@ -359,9 +466,8 @@ void EmscriptenLoop(void* arg) {
   }
 }
 #endif
-
 int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
-  App app = {.window = {}, .gpu = {}, .logger = {}, .start_time = {std::chrono::high_resolution_clock::now()}};
+  App app = {.window = {}, .gpu = {}, .logger = {}, .start_time = std::chrono::high_resolution_clock::now(), .last_frame_time = std::chrono::high_resolution_clock::now()};
   InitaliseLogging(app);
   Initialize(app);
   #ifdef __EMSCRIPTEN__
@@ -399,7 +505,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   //   std::print("queue work finished. Status: {} ; Message: {}\n", status, message);
   // });
 
-std::string ReadFileToString(const std::string& path){
+std::string ReadFileToString(const std::string &path){
   std::ifstream file(path, std::ios::binary);
   if (!file){
     spdlog::warn("Failed to open and read file: {}", path);
@@ -409,46 +515,89 @@ std::string ReadFileToString(const std::string& path){
   return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 }
 
-
-
-void CreateShaderModule(GPUContext &ctx){
-  ctx.shader_source = ReadFileToString("assets/shader.wgsl");
-  ctx.shader_last_edited = GetFileLastEdited("assets/shader.wgsl");
+wgpu::ShaderModule InitaliseShader(GPUContext &ctx, const std::string &file_path){
+  ctx.shader_source = ReadFileToString(file_path);
+  ctx.shader_last_edited = GetFileLastEdited(file_path);
   spdlog::trace("Shader source: {}", ctx.shader_source);
   wgpu::ShaderModuleDescriptor shader_descriptor = {};
-
   wgpu::ShaderSourceWGSL shader_code_descriptor = {};
-  shader_code_descriptor.nextInChain = nullptr;
+  shader_code_descriptor.nextInChain = nullptr; // why does this exist?
   shader_code_descriptor.sType = wgpu::SType::ShaderSourceWGSL;
   shader_descriptor.nextInChain = &shader_code_descriptor;
   shader_code_descriptor.code = ctx.shader_source.c_str();
 
-  ctx.shader_module = ctx.device.CreateShaderModule(&shader_descriptor);
+  return ctx.device.CreateShaderModule(&shader_descriptor);
 }
 
-enum VertexAttributeType{
-  Position = 0,
-  Color = 1
-};
+void CreateShaderModules(GPUContext &ctx){
+  ctx.shader_module = InitaliseShader(ctx, "assets/shader.wgsl");
+  //ctx.computer_shader_module = InitaliseShader(ctx, "assets/compute_shader.wgsl");
+}
+
+
+
+//   wgpu::ShaderModule computer_shader_module
+
+// }
+
+
 void CreateRenderPipeline(GPUContext &ctx){
   wgpu::RenderPipelineDescriptor pipeline_descriptor = {};
 
+
+  std::vector<wgpu::BindGroupLayoutEntry> bindings(1);
+  for (auto &b : bindings){
+    b = {};
+  }
+  bindings[BindingType::kUniforms].binding = 0;
+  bindings[BindingType::kUniforms].visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+  bindings[BindingType::kUniforms].buffer.type = wgpu::BufferBindingType::Uniform;
+  bindings[BindingType::kUniforms].buffer.minBindingSize = sizeof(Uniforms);
+  // bindings[BindingType::kComputeInput].binding = 1;
+  // bindings[BindingType::kComputeInput].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+  // bindings[BindingType::kComputeInput].visibility = wgpu::ShaderStage::Compute;
+  // bindings[BindingType::kUniforms].buffer.minBindingSize = 0;
+  // bindings[BindingType::kComputeOutput].binding = 2;
+  // bindings[BindingType::kComputeOutput].buffer.type = wgpu::BufferBindingType::Storage;
+  // bindings[BindingType::kComputeOutput].visibility = wgpu::ShaderStage::Compute;
+  // bindings[BindingType::kUniforms].buffer.minBindingSize = 0;
+
+  wgpu::BindGroupLayoutDescriptor bind_group_layout_descriptor = {};
+  bind_group_layout_descriptor.entryCount = (uint32_t)bindings.size();
+  bind_group_layout_descriptor.entries = bindings.data();
+
+  ctx.bind_group_layout = ctx.device.CreateBindGroupLayout(&bind_group_layout_descriptor);
+  
+  wgpu::PipelineLayoutDescriptor pipeline_layout_descriptor = {};
+  pipeline_layout_descriptor.bindGroupLayoutCount = 1;
+  pipeline_layout_descriptor.bindGroupLayouts = &ctx.bind_group_layout;
+  ctx.pipeline_layout = ctx.device.CreatePipelineLayout(&pipeline_layout_descriptor);
+
+  pipeline_descriptor.layout = ctx.pipeline_layout;
+
   //Vertex Pipeline State
-  std::vector<float> point_data = {
-    -0.8, -0.8, 1.0, 1.0, 1.0,
-    0.8, -0.8, 1.0, 1.0, 1.0,
-    0.8, 0.8, 1.0, 1.0, 1.0,
-    -0.8, 0.8, 1.0, 1.0, 1.0
-  };
+  // std::vector<float> point_data = {
+  //   -0.8, -0.8, 1.0, 1.0, 1.0,
+  //   0.8, -0.8, 1.0, 1.0, 1.0,
+  //   0.8, 0.8, 1.0, 1.0, 1.0,
+  //   -0.8, 0.8, 1.0, 1.0, 1.0
+  // };
 
-  std::vector<uint16_t> index_data = {
-    0 , 1, 2, // Triangle 0 connects points 0, 1, 2
-    0, 2, 3 // Triangle 1 connects points 0, 2, and 3
-  };
+  // std::vector<uint16_t> index_data = {
+  //   0 , 1, 2, // Triangle 0 connects points 0, 1, 2
+  //   0, 2, 3 // Triangle 1 connects points 0, 2, and 3
+  // };
+
+  std::vector<float> point_data = {};
+  std::vector<uint16_t> index_data = {};
+  bool geometry_loaded = LoadGeometry("assets/webgpu.txt", point_data, index_data);
+  if (!geometry_loaded){
+    spdlog::error("Failed to load geometry from assets/webgpu.txt");
+  }
+  
   index_data.resize((index_data.size() + 1) & ~1); // Round up to a multiple of 2 bytes.
-
+  ctx.index_count = static_cast<uint32_t>(index_data.size());
   const int kDataEntriesPerVertex = 5;
-
   wgpu::BufferDescriptor point_buffer_descriptor = {
     .label = "PointBuffer",
     .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex,
@@ -457,8 +606,6 @@ void CreateRenderPipeline(GPUContext &ctx){
   };
   ctx.point_buffer = ctx.device.CreateBuffer(&point_buffer_descriptor);
   ctx.queue.WriteBuffer(ctx.point_buffer, 0, point_data.data(), point_buffer_descriptor.size);
-
-  ctx.index_count = static_cast<uint32_t>(index_data.size());
   wgpu::BufferDescriptor index_buffer_descriptor = {
     .label = "IndexBuffer",
     .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index,
@@ -471,12 +618,12 @@ void CreateRenderPipeline(GPUContext &ctx){
   wgpu::VertexBufferLayout vertex_buffer_layout = {};
 
   std::vector<wgpu::VertexAttribute> vertex_attributes(2);
-  vertex_attributes[VertexAttributeType::Position].shaderLocation = 0;
-  vertex_attributes[VertexAttributeType::Position].format = wgpu::VertexFormat::Float32x2;
-  vertex_attributes[VertexAttributeType::Position].offset = 0;
-  vertex_attributes[VertexAttributeType::Color].shaderLocation = 1;
-  vertex_attributes[VertexAttributeType::Color].format = wgpu::VertexFormat::Float32x3;
-  vertex_attributes[VertexAttributeType::Color].offset = 2 * sizeof(float);
+  vertex_attributes[VertexAttributeType::kPosition].shaderLocation = 0;
+  vertex_attributes[VertexAttributeType::kPosition].format = wgpu::VertexFormat::Float32x2;
+  vertex_attributes[VertexAttributeType::kPosition].offset = 0;
+  vertex_attributes[VertexAttributeType::kColor].shaderLocation = 1;
+  vertex_attributes[VertexAttributeType::kColor].format = wgpu::VertexFormat::Float32x3;
+  vertex_attributes[VertexAttributeType::kColor].offset = 2 * sizeof(float);
 
   vertex_buffer_layout.attributeCount = static_cast<uint32_t>(vertex_attributes.size());
   vertex_buffer_layout.attributes = vertex_attributes.data();
@@ -487,6 +634,15 @@ void CreateRenderPipeline(GPUContext &ctx){
   pipeline_descriptor.vertex.constantCount = 0;
   pipeline_descriptor.vertex.constants = nullptr;
 
+  wgpu::BufferDescriptor uniform_buffer_descriptor = {
+    .label = "UniformBuffer",
+    .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform,
+    .size = sizeof(Uniforms), // 3 extra floats for alignment constraints?
+    .mappedAtCreation = false
+  };
+  ctx.uniform_buffer = ctx.device.CreateBuffer(&uniform_buffer_descriptor);
+  Uniforms uniforms = {.time = 0.0, .delta_time = kDefaultDeltaTime};
+  ctx.queue.WriteBuffer(ctx.uniform_buffer, 0, &uniforms, sizeof(kUniforms));
 
 
   //Primitive Pipeline state
@@ -526,11 +682,22 @@ void CreateRenderPipeline(GPUContext &ctx){
   pipeline_descriptor.multisample.alphaToCoverageEnabled = false;
 
   ctx.pipeline = ctx.device.CreateRenderPipeline(&pipeline_descriptor);
+
+
+  wgpu::BindGroupEntry binding = {};
+  binding.binding = 0;
+  binding.buffer = ctx.uniform_buffer;
+  binding.offset = 0;
+  binding.size = 4 * sizeof(float);
+  wgpu::BindGroupDescriptor bind_group_descriptor = {};
+  bind_group_descriptor.layout = ctx.bind_group_layout;
+  bind_group_descriptor.entryCount = 1;
+  bind_group_descriptor.entries = &binding;
+  ctx.bind_group = ctx.device.CreateBindGroup(&bind_group_descriptor);
 }
 
 
 
-wgpu::Buffer buffer_2;
 
 void PlayingWithBuffers(GPUContext &ctx){
   wgpu::BufferDescriptor buffer_descriptor = {
@@ -542,33 +709,51 @@ void PlayingWithBuffers(GPUContext &ctx){
   wgpu::Buffer buffer_1 = ctx.device.CreateBuffer(&buffer_descriptor);
   buffer_descriptor.label = "Output Buffer";
   buffer_descriptor.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  buffer_2 = ctx.device.CreateBuffer(&buffer_descriptor);
+  ctx.buffer_2 = ctx.device.CreateBuffer(&buffer_descriptor);
   std::vector<uint8_t> numbers(16);
   for (uint8_t i = 0; i < 16; ++i) numbers[i] = i;
   ctx.queue.WriteBuffer(buffer_1, 0, numbers.data(), numbers.size());
   wgpu::CommandEncoder encoder = ctx.device.CreateCommandEncoder(); // might need Default
-  encoder.CopyBufferToBuffer(buffer_1, 0, buffer_2, 0, 16);
+  encoder.CopyBufferToBuffer(buffer_1, 0, ctx.buffer_2, 0, 16);
   wgpu::CommandBuffer command_copy = encoder.Finish();
   ctx.queue.Submit(1, &command_copy);
-  ctx.queue.OnSubmittedWorkDone(GetPlatformCallbackMode(),[](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
+  ctx.queue.OnSubmittedWorkDone(GetPlatformCallbackMode(),[&ctx](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
     spdlog::info("Copied data from buffer from 1 to 2?: status: [{}], message '{}'" , status, message);
-    buffer_2.MapAsync(wgpu::MapMode::Read, 0, 16, GetPlatformCallbackMode(), []([[maybe_unused]]wgpu::MapAsyncStatus status, [[maybe_unused]]wgpu::StringView message){
+    ctx.buffer_2.MapAsync(wgpu::MapMode::Read, 0, 16, GetPlatformCallbackMode(), [&ctx]([[maybe_unused]]wgpu::MapAsyncStatus status, [[maybe_unused]]wgpu::StringView message){
       spdlog::info("Buffer 2 mapped with status: {}", status);
-      uint8_t* buffer_data = (uint8_t*)buffer_2.GetConstMappedRange(0,16);
+      uint8_t* buffer_data = (uint8_t*)ctx.buffer_2.GetConstMappedRange(0,16);
       std::string str = "Buffer: [";
       for (int i = 0; i < 16; ++i){
         str += std::to_string(buffer_data[i]) + ", ";
       }
       str += "]";
       spdlog::info(str);
-      buffer_2.Unmap();
+      ctx.buffer_2.Unmap();
     });
   });
+}
+
+void CreateComputePipeline(GPUContext &ctx){
+  // Compute pass here
+
+  
+
+
+
+  wgpu::ComputePipelineDescriptor compute_pipeline_descriptor = {};
+  compute_pipeline_descriptor.compute.entryPoint = "cs_main";
+  compute_pipeline_descriptor.compute.module = ctx.shader_module;
+  ctx.compute_pipeline = ctx.device.CreateComputePipeline(&compute_pipeline_descriptor);
 
 }
+
+
 
 
 // Learning about the GPU
 // a buffer is a chunk of memory allocated in VRAM.
 // WriteBuffer copies the CPU side of the memory during transfer to its own location, that then it is put from there onto the GPU.
 // Can be disabled with mapping.
+
+
+
