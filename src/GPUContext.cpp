@@ -226,7 +226,7 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
     HotReloadShaders();
   }
 
-  const int scroll_speed = 180 * delta_time;
+  const float scroll_speed = 180 * delta_time;
   if (camera_y > surface_configuration_.height - 68){
     scrolling_state_vertical = kMovingUp;
   }
@@ -300,11 +300,11 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   compute_pass.End();
   wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
   wgpu::CommandBuffer command = encoder.Finish(&command_buffer_descriptor);
-  spdlog::debug("Submitting command..");
+  spdlog::trace("Submitting command..");
   queue_.Submit(1, &command);
-  spdlog::debug("Command submitted");
+  spdlog::trace("Command submitted");
     queue_.OnSubmittedWorkDone(wgpu::CallbackMode::AllowSpontaneous,[](wgpu::QueueWorkDoneStatus status, wgpu::StringView message){
-    spdlog::debug("queue work finished. Status: {} ; Message: {}", status, message);
+    spdlog::trace("queue work finished. Status: {} ; Message: {}", status, message);
   });
   #ifndef __EMSCRIPTEN__
     surface_.Present();

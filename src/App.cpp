@@ -35,14 +35,14 @@ void App::Initalize(uint16_t width, uint16_t height, const std::string& title) {
   }
 }
 void App::LogTime(){
-  spdlog::trace("DeltaTime: {}", delta_time_);
+  spdlog::debug("DeltaTime: {}", delta_time_);
   int current_second = static_cast<int>(total_time_elapsed_);
   if (current_second == last_second_ + 10){
     last_second_ = current_second;
     spdlog::info("Seconds since program opened: {}", current_second);
   }
   else{
-    spdlog::debug("Time since program opened: {}", static_cast<float>(total_time_elapsed_));
+    spdlog::trace("Time since program opened: {}", static_cast<float>(total_time_elapsed_));
   }
 }
 void App::CalculateDeltaTime(){
@@ -79,6 +79,6 @@ double App::GetTotalTimeElapsed() const {
 void App::InitializeLogging() {
   logger_ = spdlog::stdout_color_mt("app");
   spdlog::set_default_logger(logger_);
-  spdlog::set_level(spdlog::level::err);
-  spdlog::flush_on(spdlog::level::err);
+  spdlog::set_level(spdlog::level::debug);
+  spdlog::flush_on(spdlog::level::debug);
 }
