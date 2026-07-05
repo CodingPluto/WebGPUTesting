@@ -56,9 +56,9 @@ void App::Update() {
   LogTime();
   glfwPollEvents();
   if (glfwWindowShouldClose(window_)) running_ = false;
-  if (UsingEmscripten() && total_time_elapsed_ >= 20){
-    running_ = false;
-  }
+  // if (UsingEmscripten() && total_time_elapsed_ >= 20){
+  //   running_ = false;
+  // }
 }
 void App::Shutdown() {
     glfwDestroyWindow(window_);
