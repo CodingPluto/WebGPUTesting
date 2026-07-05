@@ -2,6 +2,7 @@
   "dependencies": [
     "dawn",
     "glfw3",
-    "spdlog"
+    "spdlog",
+    "glm"
   ]
 }

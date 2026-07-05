@@ -38,159 +38,157 @@
 
 #include <GLFW/glfw3.h>
 
-
-
-#ifdef __EMSCRIPTEN__
-#  define GLFW_EXPOSE_NATIVE_EMSCRIPTEN
-#  ifndef GLFW_PLATFORM_EMSCRIPTEN // not defined in older versions of emscripten
-#    define GLFW_PLATFORM_EMSCRIPTEN 0
-#  endif
-#else // __EMSCRIPTEN__
-#  ifdef _GLFW_X11
-#    define GLFW_EXPOSE_NATIVE_X11
-#  endif
-#  ifdef _GLFW_WAYLAND
-#    define GLFW_EXPOSE_NATIVE_WAYLAND
-#  endif
-#ifdef __APPLE__
-#    define GLFW_EXPOSE_NATIVE_COCOA
+#if (defined(__linux__) && !defined(USE_X11) && !defined(USE_WAYLAND))
+  #define UNSPECIFIED_LINUX_WINDOWING_SYSTEM
 #endif
-#  ifdef _WIN32
-#    define GLFW_EXPOSE_NATIVE_WIN32
-#  endif
+
+#ifdef UNSPECIFIED_LINUX_WINDOWING_SYSTEM
+  #define USE_X11
+#endif
+#ifdef __EMSCRIPTEN__
+  #define GLFW_EXPOSE_NATIVE_EMSCRIPTEN
+  #ifndef GLFW_PLATFORM_EMSCRIPTEN // not defined in older versions of emscripten
+    #define GLFW_PLATFORM_EMSCRIPTEN 0
+  #endif
+#else // __EMSCRIPTEN__
+  #ifdef __linux__
+    #ifdef USE_X11
+      #define GLFW_EXPOSE_NATIVE_X11
+    #endif
+    #ifdef USE_WAYLAND
+      #define GLFW_EXPOSE_NATIVE_WAYLAND
+    #endif
+  #endif
+  #ifdef __APPLE__
+    #define GLFW_EXPOSE_NATIVE_COCOA
+  #endif
+  #ifdef __WINDOWS__
+    #define GLFW_EXPOSE_NATIVE_WIN32
+  #endif
 #endif // __EMSCRIPTEN__
 
 #ifdef GLFW_EXPOSE_NATIVE_COCOA
-#  include <Foundation/Foundation.h>
-#  include <QuartzCore/CAMetalLayer.h>
+  #include <Foundation/Foundation.h>
+  #include <QuartzCore/CAMetalLayer.h>
 #endif
 
 #ifndef __EMSCRIPTEN__
-#  include <GLFW/glfw3native.h>
+  #include <GLFW/glfw3native.h>
 #endif
 
 
 
 WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* window) {
-#ifndef __EMSCRIPTEN__
+    spdlog::info("Attempting to create a surface");
+
+  #ifdef UNSPECIFIED_LINUX_WINDOWING_SYSTEM
+    spdlog::warn("Unspecified Linux Windowing System. Defaulting to use X11. Use -DUSE_X11 or -DUSE_WAYLAND when compiling to specify a Windowing System.");
+  #endif
+  #ifndef __EMSCRIPTEN__
     switch (glfwGetPlatform()) {
-#else
+  #else
     // glfwGetPlatform is not available in older versions of emscripten
     switch (GLFW_PLATFORM_EMSCRIPTEN) {
-#endif
-
-#ifdef GLFW_EXPOSE_NATIVE_X11
-    case GLFW_PLATFORM_X11: {
+  #endif
+    #ifdef GLFW_EXPOSE_NATIVE_X11
+      case GLFW_PLATFORM_X11: {
         spdlog::info("Attempting to create surface on GLFW_PLATFORM_X11");
         Display* x11_display = glfwGetX11Display();
         Window x11_window = glfwGetX11Window(window);
-
         WGPUSurfaceSourceXlibWindow fromXlibWindow;
         fromXlibWindow.chain.sType = WGPUSType_SurfaceSourceXlibWindow;
         fromXlibWindow.chain.next = NULL;
         fromXlibWindow.display = x11_display;
         fromXlibWindow.window = x11_window;
-
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromXlibWindow.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_X11");
-    }
-#endif // GLFW_EXPOSE_NATIVE_X11
-
-#ifdef GLFW_EXPOSE_NATIVE_WAYLAND
-    case GLFW_PLATFORM_WAYLAND: {
+        return surface;
+      }
+    #endif // GLFW_EXPOSE_NATIVE_X11
+    #ifdef GLFW_EXPOSE_NATIVE_WAYLAND
+      case GLFW_PLATFORM_WAYLAND: {
         spdlog::info("Attempting to create surface on GLFW_PLATFORM_WAYLAND");
         struct wl_display* wayland_display = glfwGetWaylandDisplay();
         struct wl_surface* wayland_surface = glfwGetWaylandWindow(window);
-
         WGPUSurfaceSourceWaylandSurface fromWaylandSurface;
         fromWaylandSurface.chain.sType = WGPUSType_SurfaceSourceWaylandSurface;
         fromWaylandSurface.chain.next = NULL;
         fromWaylandSurface.display = wayland_display;
         fromWaylandSurface.surface = wayland_surface;
-
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromWaylandSurface.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_WAYLAND");
+        return surface;
     }
-#endif // GLFW_EXPOSE_NATIVE_WAYLAND
-
-#ifdef GLFW_EXPOSE_NATIVE_COCOA
-    case GLFW_PLATFORM_COCOA: {
+    #endif // GLFW_EXPOSE_NATIVE_WAYLAND
+    #ifdef GLFW_EXPOSE_NATIVE_COCOA
+      case GLFW_PLATFORM_COCOA: {
         spdlog::info("Attempting to create surface on GLFW_PLATFORM_COCOA");
         id metal_layer = [CAMetalLayer layer];
         NSWindow* ns_window = glfwGetCocoaWindow(window);
         [ns_window.contentView setWantsLayer : YES] ;
         [ns_window.contentView setLayer : metal_layer] ;
-
         WGPUSurfaceSourceMetalLayer fromMetalLayer;
         fromMetalLayer.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
         fromMetalLayer.chain.next = NULL;
         fromMetalLayer.layer = metal_layer;
-
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromMetalLayer.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_COCOA");
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
-    }
-#endif // GLFW_EXPOSE_NATIVE_COCOA
-
-#ifdef GLFW_EXPOSE_NATIVE_WIN32
-    case GLFW_PLATFORM_WIN32: {
+        return surface;
+      }
+    #endif // GLFW_EXPOSE_NATIVE_COCOA
+    #ifdef GLFW_EXPOSE_NATIVE_WIN32
+      case GLFW_PLATFORM_WIN32: {
         spdlog::info("Attempting to create surface on GLFW_PLATFORM_WIN32");
         HWND hwnd = glfwGetWin32Window(window);
         HINSTANCE hinstance = GetModuleHandle(NULL);
-
         WGPUSurfaceSourceWindowsHWND fromWindowsHWND;
         fromWindowsHWND.chain.sType = WGPUSType_SurfaceSourceWindowsHWND;
         fromWindowsHWND.chain.next = NULL;
         fromWindowsHWND.hinstance = hinstance;
         fromWindowsHWND.hwnd = hwnd;
-
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromWindowsHWND.chain;
         surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
         spdlog::info("Sucessfully created surface on GLFW_PLATFORM_WIN32");
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
-    }
-#endif // GLFW_EXPOSE_NATIVE_WIN32
-
-#ifdef GLFW_EXPOSE_NATIVE_EMSCRIPTEN
-    case GLFW_PLATFORM_EMSCRIPTEN: {
-      spdlog::info("Attempting to create surface on GLFW_PLATFORM_EMSCRIPTEN");
-
-#  ifdef WEBGPU_BACKEND_EMDAWNWEBGPU
-        WGPUEmscriptenSurfaceSourceCanvasHTMLSelector fromCanvasHTMLSelector;
-        fromCanvasHTMLSelector.chain.sType = WGPUSType_EmscriptenSurfaceSourceCanvasHTMLSelector;
-        fromCanvasHTMLSelector.selector = (WGPUStringView){ "canvas", WGPU_STRLEN };
-#  else
-        WGPUSurfaceDescriptorFromCanvasHTMLSelector fromCanvasHTMLSelector;
-        fromCanvasHTMLSelector.chain.sType = WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector;
-        fromCanvasHTMLSelector.selector = "canvas";
-#  endif
+        return surface;
+      }
+    #endif // GLFW_EXPOSE_NATIVE_WIN32
+    #ifdef GLFW_EXPOSE_NATIVE_EMSCRIPTEN
+      case GLFW_PLATFORM_EMSCRIPTEN: {
+        spdlog::info("Attempting to create surface on GLFW_PLATFORM_EMSCRIPTEN");
+        #ifdef WEBGPU_BACKEND_EMDAWNWEBGPU
+          WGPUEmscriptenSurfaceSourceCanvasHTMLSelector fromCanvasHTMLSelector;
+          fromCanvasHTMLSelector.chain.sType = WGPUSType_EmscriptenSurfaceSourceCanvasHTMLSelector;
+          fromCanvasHTMLSelector.selector = (WGPUStringView){ "#canvas", WGPU_STRLEN };
+        #else
+          WGPUSurfaceDescriptorFromCanvasHTMLSelector fromCanvasHTMLSelector;
+          fromCanvasHTMLSelector.chain.sType = WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector;
+          fromCanvasHTMLSelector.selector = "#canvas";
+        #endif
         fromCanvasHTMLSelector.chain.next = NULL;
-
         WGPUSurfaceDescriptor surfaceDescriptor;
         surfaceDescriptor.nextInChain = &fromCanvasHTMLSelector.chain;
-#  ifdef WEBGPU_BACKEND_EMDAWNWEBGPU
-        surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
-#  else
-        surfaceDescriptor.label = NULL;
-#  endif
-      spdlog::info("Sucessfully created surface on GLFW_PLATFORM_EMSCRIPTEN");
-        return wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
-    }
-#endif // GLFW_EXPOSE_NATIVE_EMSCRIPTEN
-
+        #ifdef WEBGPU_BACKEND_EMDAWNWEBGPU
+          surfaceDescriptor.label = (WGPUStringView){ NULL, WGPU_STRLEN };
+        #else
+          surfaceDescriptor.label = NULL;
+        #endif
+        auto surface = wgpuInstanceCreateSurface(instance, &surfaceDescriptor);
+        spdlog::info("Sucessfully created surface on GLFW_PLATFORM_EMSCRIPTEN");
+        return surface;
+      }
+    #endif // GLFW_EXPOSE_NATIVE_EMSCRIPTEN
     default:
-        // Unsupported platform
         spdlog::warn("Unable to detect or unsupported platform for surface configuration");
         return NULL;
     }

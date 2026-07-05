@@ -25,6 +25,18 @@
       }
     },
     {
+      "name": "macos-release",
+      "displayName": "MacOS Release Config",
+      "inherits": "native-base",
+      "binaryDir": "${sourceDir}/build/native/macos/release",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+      }
+    },
+    {
       "name": "windows-debug",
       "displayName": "Windows Debug Config",
       "inherits": "native-base",
@@ -35,6 +47,18 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
         "CMAKE_CXX_FLAGS": "-DPRELOAD_D3D_COMPILER"
+      }
+    },
+    {
+      "name": "windows-release",
+      "displayName": "Windows Release Config",
+      "inherits": "native-base",
+      "binaryDir": "${sourceDir}/build/native/windows/release",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
       }
     },
     {
@@ -50,13 +74,15 @@
       }
     },
     {
-      "name": "macos-release",
-      "displayName": "Native Release Config",
+      "name": "linux-release",
+      "displayName": "Linux Release Config",
       "inherits": "native-base",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/release/macos",
+      "binaryDir": "${sourceDir}/build/native/linux/release",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
       }
     },
     {
@@ -94,6 +120,10 @@
     {
       "name": "macos-debug",
       "configurePreset": "macos-debug"
+    },
+    {
+      "name": "macos-release",
+      "configurePreset": "macos-release"
     },
     {
       "name": "linux-debug",

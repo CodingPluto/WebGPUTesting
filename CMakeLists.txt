@@ -20,10 +20,20 @@ if (NOT EMSCRIPTEN)
   find_package(glfw3 CONFIG REQUIRED)
 endif()
 
-add_executable(App src/main.cpp src/glfw3webgpu.c)
-
 find_package(spdlog CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
+add_executable(App 
+  src/main.cpp
+  src/glfw3webgpu.c
+  src/GPUContext.cpp
+  src/App.cpp
+  src/ShaderLoader.cpp
+  src/BufferFactory.cpp
+  src/RenderPipelineFactory.cpp
+)
+
+target_link_libraries(App PRIVATE glm::glm)
 
 if (APPLE)
   set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-x objective-c++ -w")
@@ -74,7 +84,7 @@ endif()
 
 
 if (EMSCRIPTEN)
-  target_compile_definitions(App PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
+  #target_compile_definitions(App PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
   target_compile_options(App PRIVATE --use-port=emdawnwebgpu) # Supplies dawn files to compiler. Needed for includes.
   target_compile_definitions(App PRIVATE WEBGPU_BACKEND_EMDAWNWEBGPU)
   target_compile_definitions(App PRIVATE
@@ -91,6 +101,24 @@ if (EMSCRIPTEN)
   target_link_options(App PRIVATE
         -sUSE_GLFW=3
         --use-port=emdawnwebgpu
+        --preload-file ${CMAKE_SOURCE_DIR}/assets@assets/
+        --shell-file my_custom_shell.html
     )
   set_target_properties(App PROPERTIES SUFFIX ".html")
 endif()
+
+add_custom_target(copy_assets ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${CMAKE_SOURCE_DIR}/assets
+      ${CMAKE_BINARY_DIR}/assets
+  COMMENT "Syncing assets.."
+)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  target_compile_definitions(App PRIVATE RESOURCE_DIR="./assets")
+endif()
+
+#   target_compile_definitions(App PRIVATE RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
+# else()
+#   
+# endif()
