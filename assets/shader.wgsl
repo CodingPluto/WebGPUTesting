@@ -16,7 +16,8 @@ fn vs_main(@location(0) position: vec2f, @location(1) color: vec3f) -> VertexOut
   var out : VertexOutput;
 
   var offset = vec2f(cos(uniforms.time * 2), sin(uniforms.time * 2)) * 0.2;
-  out.position = vec4f(position.x - 0.6 + offset.x, position.y - 0.3 + offset.y, 0.0, 1.5 - sin(uniforms.time * 2) * 0.5);
+  out.position = vec4f(position.x - 0.6 + offset.x, position.y - 0.3 + offset.y, 0.0, 1);
+  out.position = vec4f(out.position.x, out.position.y, 0.0, 1);
   out.color = vec3f(color.x, color.y + cos(uniforms.time) * 0.2, color.z + sin(uniforms.time) * 0.2);
 
   return out;
