@@ -79,6 +79,6 @@ double App::GetTotalTimeElapsed() const {
 void App::InitializeLogging() {
   logger_ = spdlog::stdout_color_mt("app");
   spdlog::set_default_logger(logger_);
-  spdlog::set_level(spdlog::level::info);
-  spdlog::flush_on(spdlog::level::info);
+  spdlog::set_level(spdlog::level::err);
+  spdlog::flush_on(spdlog::level::err);
 }

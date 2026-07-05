@@ -17,6 +17,49 @@
 
 #include "App.hpp"
 
+
+#ifdef _WIN32
+#include <windows.h>
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#else
+#include <unistd.h>
+#endif
+
+void FixWorkingDirectory() {
+    std::filesystem::path exePath;
+
+#ifdef _WIN32
+    wchar_t buffer[MAX_PATH];
+    GetModuleFileNameW(NULL, buffer, MAX_PATH);
+    exePath = std::filesystem::path(buffer);
+#elif __APPLE__
+    char buffer[PATH_MAX];
+    uint32_t size = sizeof(buffer);
+    if (_NSGetExecutablePath(buffer, &size) == 0) {
+        exePath = std::filesystem::path(buffer);
+    }
+#else // Linux
+    char buffer[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", buffer, PATH_MAX);
+    if (count != -1) {
+        exePath = std::filesystem::path(std::string(buffer, count));
+    }
+#endif
+
+    // Get the directory containing the executable
+    if (!exePath.empty()) {
+        std::filesystem::path exeDir = exePath.parent_path();
+        // Change the current working directory to the executable's folder
+        std::filesystem::current_path(exeDir);
+    }
+}
+
+
+
+
+
+
 void Initialize([[maybe_unused]]App &app){}
 void Shutdown([[maybe_unused]]App &app){}
 void Update([[maybe_unused]]App &app){}
@@ -38,6 +81,7 @@ void EmscriptenLoop(void* arg) {
 }
 #endif
 int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
+  FixWorkingDirectory();
   App app = {};
   GPUContext gpu = {};
   app.Initalize(1280, 720, "WebGPU Boids");

@@ -7,11 +7,14 @@
 #include <filesystem>
 #include <spdlog/spdlog.h>
 #include <fstream>
+#include <glm/glm.hpp>
 
 #include "formatted_webgpu.h"
 
 class GPUContext {
 private:
+  float camera_x = 250;
+  float camera_y = 250;
   // --- WebGPU Handles ---
   wgpu::Instance instance_ = nullptr;
   wgpu::Adapter adapter_ = nullptr;
@@ -35,6 +38,9 @@ private:
   wgpu::Buffer uniform_buffer_ = nullptr;
   wgpu::Buffer buffer_2_ = nullptr; // Note: consider renaming for clarity later
   
+  glm::mat4 projection_matrix_ = {};
+  glm::mat4 view_matrix_ = {};
+
   uint32_t index_count_ = 0;
 
   std::filesystem::file_time_type shader_last_edited_ = {};
@@ -61,6 +67,8 @@ public:
   void CreateComputePipeline();
   void CreateResources();
   void HotReloadShaders();
+
+  void UpdateViewProjectionMatrices();
 
   std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GetNextSurfaceViewData();
 

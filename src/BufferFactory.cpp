@@ -1,6 +1,7 @@
 #include "BufferFactory.hpp"
 #include <bit>
 #include <cstdint>
+#include <spdlog/spdlog.h>
 wgpu::Buffer BufferFactory::CreateVertex(const wgpu::Device& device, const wgpu::Queue& queue, const std::vector<float>& data) {
   wgpu::BufferDescriptor vertex_buffer_descriptor = {
     .label = "PointBuffer",
@@ -32,6 +33,7 @@ wgpu::Buffer BufferFactory::CreateUniform(const wgpu::Device& device, size_t siz
       .size = size,
       .mappedAtCreation = false
     };
+  spdlog::info("Creating a UniformBuffer with a size of {} bytes", size);
   return device.CreateBuffer(&uniform_buffer_descriptor);
 }
 constexpr size_t BufferFactory::AlignSize(size_t size, size_t alignment) noexcept{

@@ -114,8 +114,11 @@ add_custom_target(copy_assets ALL
   COMMENT "Syncing assets.."
 )
 
-# if (DEVELOPER_MODE)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  target_compile_definitions(App PRIVATE RESOURCE_DIR="./assets")
+endif()
+
 #   target_compile_definitions(App PRIVATE RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 # else()
-#   target_compile_definitions(App PRIVATE RESOURCE_DIR="./assets")
+#   
 # endif()

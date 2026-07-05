@@ -1,9 +1,12 @@
 #include "GPUContext.hpp"
 
 #include <chrono>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/fwd.hpp>
 #include <webgpu/webgpu_cpp.h>
 #include <spdlog/spdlog.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 
 #include "App.hpp"
@@ -18,11 +21,13 @@ enum BindingType{
   kComputeInput = 1,
   kComputeOutput = 2
 };
+
 struct Uniforms {
-  glm::f32 time; // at byte offset 0
-  glm::f32 delta_time; // at byte offset 4
+  glm::f32 time = 0; // at byte offset 0
+  glm::f32 delta_time = 0; // at byte offset 
   std::array<glm::f32, 2> padding = {};
-};
+  glm::mat4 projection_matrix = {};
+}; // Apparently takes 80 bytes!  Starts at an offset of 16.
 void GPUContext::StartAdapterRequest(const wgpu::RequestAdapterOptions *options) {
   instance_.RequestAdapter(
     options,GetPlatformCallbackMode(), [this](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, wgpu::StringView message) {
@@ -154,7 +159,7 @@ void GPUContext::InitializeCallbacks(){
     limits.maxInterStageShaderVariables = 3;
     limits.maxBindGroups = 1;
     limits.maxUniformBuffersPerShaderStage = 1;
-    limits.maxUniformBufferBindingSize = 16 * 4;
+    limits.maxUniformBufferBindingSize = 2000;
     device_descriptor.requiredLimits = &limits;
     device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
       spdlog::warn("Device lost. reason: {}", reason);
@@ -198,9 +203,19 @@ std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GPUContext::GetNextSurfaceVie
   wgpu::TextureView target_view = surface_texture.texture.CreateView(&view_descriptor);
   return {surface_texture, target_view};
 }
+enum ScrollingState{
+  kMovingUp = 0,
+  kMovingDown = 1,
+  kMovingLeft = 2,
+  kMovingRight = 3
+};
+
+
+static ScrollingState scrolling_state_vertical = kMovingUp;
+static ScrollingState scrolling_state_horiziontal = kMovingRight;
 void GPUContext::Update(float delta_time, double total_time_elapsed_){
   #ifndef __EMSCRIPTEN__
-    //std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    std::this_thread::sleep_for(std::chrono::milliseconds(16));
     instance_.ProcessEvents();
   #endif
   if (initialized_state_ != InitializationState::Ready){
@@ -210,11 +225,49 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   if (shader_last_edited_ != ShaderLoader::GetLastEdited("assets/shader.wgsl")){
     HotReloadShaders();
   }
+
+  const int scroll_speed = 180 * delta_time;
+  if (camera_y > surface_configuration_.height - 68){
+    scrolling_state_vertical = kMovingUp;
+  }
+  if (camera_y < 5){
+    scrolling_state_vertical = kMovingDown;
+  }
+  if (camera_x < 45){
+    scrolling_state_horiziontal = kMovingRight;
+  }
+  if (camera_x > surface_configuration_.width - 73){
+    scrolling_state_horiziontal = kMovingLeft;
+  }
+  switch(scrolling_state_vertical){
+    case kMovingUp:
+      camera_y -= scroll_speed;
+      break;
+    case kMovingDown:
+      camera_y += scroll_speed;
+      break;
+    default:
+      break;
+  }
+  switch(scrolling_state_horiziontal){
+    case kMovingLeft:
+      camera_x -= scroll_speed;
+      break;
+    case kMovingRight:
+      camera_x += scroll_speed;
+      break;
+    default:
+      break;
+  }
+
+
+  UpdateViewProjectionMatrices();
   Uniforms uniforms = {
     .time = static_cast<float>(total_time_elapsed_),
-    .delta_time = (glm::f32)delta_time
+    .delta_time = (glm::f32)delta_time,
+    .projection_matrix = projection_matrix_
   };
-  queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(kUniforms));
+  queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
   auto [surface_view, target_view] = GetNextSurfaceViewData();
   wgpu::CommandEncoderDescriptor encoder_descriptor = {.nextInChain = nullptr, .label = "My command encoder"};
   wgpu::CommandEncoder encoder = device_.CreateCommandEncoder(&encoder_descriptor);
@@ -304,13 +357,14 @@ void GPUContext::CreateRenderPipeline(){
   vertex_buffer_ = BufferFactory::CreateVertex(device_, queue_, vertex_data);
   index_buffer_ = BufferFactory::CreateIndex(device_, queue_, index_data);
   uniform_buffer_ = BufferFactory::CreateUniform(device_, sizeof(Uniforms));
-  Uniforms uniforms = {.time = 0.0, .delta_time = kDefaultDeltaTime};
+  UpdateViewProjectionMatrices();
+  Uniforms uniforms = {.time = 0.0, .delta_time = kDefaultDeltaTime, .projection_matrix = projection_matrix_};
   queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
   wgpu::BindGroupEntry binding = {};
   binding.binding = 0;
   binding.buffer = uniform_buffer_;
   binding.offset = 0;
-  binding.size = 4 * sizeof(float);
+  binding.size = sizeof(Uniforms);
   wgpu::BindGroupDescriptor bind_group_descriptor = {};
   bind_group_descriptor.layout = bind_group_layout_;
   bind_group_descriptor.entryCount = 1;
@@ -350,3 +404,10 @@ void GPUContext::CreateShaderModules(){
   //   0 , 1, 2, // Triangle 0 connects points 0, 1, 2
   //   0, 2, 3 // Triangle 1 connects points 0, 2, and 3
   // };
+
+
+void GPUContext::UpdateViewProjectionMatrices(){
+  projection_matrix_ = glm::ortho(0.0f, static_cast<float>(surface_configuration_.width), static_cast<float>(surface_configuration_.height), 0.0f);
+  view_matrix_ = glm::translate(glm::mat4(1.0f), glm::vec3(camera_x, camera_y, 0.0f));
+  projection_matrix_ = projection_matrix_ * view_matrix_;
+}
