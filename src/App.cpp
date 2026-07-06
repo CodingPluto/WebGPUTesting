@@ -13,6 +13,7 @@
 #include <GLFW/glfw3.h>
 #endif
 
+//static_assert(true, "App.cpp is compiled");
 
 void App::Initalize(uint16_t width, uint16_t height, const std::string& title) {
   InitializeLogging();
@@ -66,9 +67,6 @@ void App::Shutdown() {
 }
 bool App::IsRunning() const {
   return running_; 
-}
-GLFWwindow* App::GetWindow() const {
-  return window_;
 }
 float App::GetDeltaTime() const {
   return delta_time_;

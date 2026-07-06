@@ -115,7 +115,7 @@ void GPUContext::InspectAdapter(const wgpu::Adapter &adapter){
   spdlog::trace("backend type: {}", info.backendType);
 }
 void GPUContext::InitializeSurface(GLFWwindow *window) {
-  
+  spdlog::trace("Initializing surface for window. Window pointer: {}", static_cast<void*>(window));
   surface_ = wgpu::Surface::Acquire(glfwCreateWindowWGPUSurface(instance_.Get(), window));
   if (!surface_){
     spdlog::critical("Failed to create a surface for the window");

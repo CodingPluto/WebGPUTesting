@@ -81,6 +81,9 @@ void EmscriptenLoop(void* arg) {
 }
 #endif
 int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
+  #ifdef _WIN32
+    LoadLibraryA("d3dcompiler_47.dll");
+  #endif
   FixWorkingDirectory();
   App app = {};
   GPUContext gpu = {};

@@ -62,7 +62,7 @@
   #ifdef __APPLE__
     #define GLFW_EXPOSE_NATIVE_COCOA
   #endif
-  #ifdef __WINDOWS__
+  #ifdef _WIN32
     #define GLFW_EXPOSE_NATIVE_WIN32
   #endif
 #endif // __EMSCRIPTEN__
@@ -80,7 +80,6 @@
 
 WGPUSurface glfwCreateWindowWGPUSurface(WGPUInstance instance, GLFWwindow* window) {
     spdlog::info("Attempting to create a surface");
-
   #ifdef UNSPECIFIED_LINUX_WINDOWING_SYSTEM
     spdlog::warn("Unspecified Linux Windowing System. Defaulting to use X11. Use -DUSE_X11 or -DUSE_WAYLAND when compiling to specify a Windowing System.");
   #endif

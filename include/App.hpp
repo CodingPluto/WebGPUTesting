@@ -5,7 +5,6 @@
 #include <memory>
 
 #ifdef __EMSCRIPTEN__
-#include <GLFW/glfw3.h>
 #include <emscripten.h>
 #else
 #include <GLFW/glfw3.h>
@@ -21,7 +20,7 @@ class App {
   void Update();
   void Shutdown();
   [[nodiscard]] bool IsRunning() const;
-  [[nodiscard]] GLFWwindow* GetWindow() const;
+  [[nodiscard]] GLFWwindow* GetWindow() const {return window_;};
   [[nodiscard]] float GetDeltaTime() const;
   [[nodiscard]] double GetTotalTimeElapsed() const;
 
