@@ -6,6 +6,7 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include <GLFW/glfw3.h>
 #else
 #include <GLFW/glfw3.h>
 #endif

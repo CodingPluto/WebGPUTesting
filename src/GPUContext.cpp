@@ -57,29 +57,29 @@ void GPUContext::StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor){
 void GPUContext::OutputFeatures(const wgpu::SupportedFeatures &features){
   for (size_t i = 0; i < features.featureCount; ++i){
     auto feature = features.features[i];
-    spdlog::trace("feature: {}", feature);
+    spdlog::debug("feature: {}", feature);
   }
 }
 void GPUContext::OutputLimits(const wgpu::Limits &limits){
-  spdlog::trace("maxTextureDimension1D: {}", limits.maxTextureDimension1D);
-  spdlog::trace("maxTextureDimension2D: {}", limits.maxTextureDimension2D);
-  spdlog::trace("maxTextureDimension3D: {}", limits.maxTextureDimension3D);
-  spdlog::trace("maxTextureArrayLayers: {}", limits.maxTextureArrayLayers);
-  spdlog::trace("maxVertexAttributes: {}", limits.maxVertexAttributes);
-  spdlog::trace("maxVertexBuffers: {}", limits.maxVertexBuffers);
-  spdlog::trace("maxVertexBuffersArrayStride: {}", limits.maxVertexBufferArrayStride);
-  spdlog::trace("maxBindGroups: {}", limits.maxBindGroups);
-  spdlog::trace("maxUniformBuffersPerShaderStage: {}", limits.maxUniformBuffersPerShaderStage);
-  spdlog::trace("maxUniformBufferBindingSize: {}", limits.maxUniformBufferBindingSize);
+  spdlog::debug("maxTextureDimension1D: {}", limits.maxTextureDimension1D);
+  spdlog::debug("maxTextureDimension2D: {}", limits.maxTextureDimension2D);
+  spdlog::debug("maxTextureDimension3D: {}", limits.maxTextureDimension3D);
+  spdlog::debug("maxTextureArrayLayers: {}", limits.maxTextureArrayLayers);
+  spdlog::debug("maxVertexAttributes: {}", limits.maxVertexAttributes);
+  spdlog::debug("maxVertexBuffers: {}", limits.maxVertexBuffers);
+  spdlog::debug("maxVertexBuffersArrayStride: {}", limits.maxVertexBufferArrayStride);
+  spdlog::debug("maxBindGroups: {}", limits.maxBindGroups);
+  spdlog::debug("maxUniformBuffersPerShaderStage: {}", limits.maxUniformBuffersPerShaderStage);
+  spdlog::debug("maxUniformBufferBindingSize: {}", limits.maxUniformBufferBindingSize);
 }
 void GPUContext::InspectDevice(wgpu::Device device){
   //Features
-  spdlog::trace("Device features: ");
+  spdlog::debug("Device features: ");
   wgpu::SupportedFeatures features;
   device.GetFeatures(&features);
   OutputFeatures(features);
   //Limits
-  spdlog::trace("Device limits: ");
+  spdlog::debug("Device limits: ");
   wgpu::Limits limits = {};
   bool success = device.GetLimits(&limits) == wgpu::Status::Success;
   if (success) {
@@ -88,31 +88,31 @@ void GPUContext::InspectDevice(wgpu::Device device){
 }
 void GPUContext::InspectAdapter(const wgpu::Adapter &adapter){
   //Limits
-  spdlog::trace("Adapter limits:");
+  spdlog::debug("Adapter limits:");
   wgpu::Limits limits = {};
   bool success = adapter.GetLimits(&limits) == wgpu::Status::Success;
   if (success) {
     OutputLimits(limits);
   }
   // Features
-  spdlog::trace("Adapter features:");
+  spdlog::debug("Adapter features:");
   wgpu::SupportedFeatures features;
   adapter.GetFeatures(&features);
   OutputFeatures(features);
   // Properties
-  spdlog::trace("Adapter properties:");
+  spdlog::debug("Adapter properties:");
   wgpu::AdapterInfo info = {};
   adapter.GetInfo(&info);
-  spdlog::trace("vendorID: {}", info.vendorID);
-  spdlog::trace("vendor: {}", info.vendor);
-  spdlog::trace("architecture: {}", info.architecture);
-  spdlog::trace("deviceID: {}", info.deviceID);
-  spdlog::trace("device: {}", info.device);
-  spdlog::trace("description: {}", info.description);
-  spdlog::trace("subgroup minimum size: {}", info.subgroupMinSize);
-  spdlog::trace("subgroup maximum size: {}", info.subgroupMaxSize);
-  spdlog::trace("adapter type: {}", info.adapterType);
-  spdlog::trace("backend type: {}", info.backendType);
+  spdlog::debug("vendorID: {}", info.vendorID);
+  spdlog::debug("vendor: {}", info.vendor);
+  spdlog::debug("architecture: {}", info.architecture);
+  spdlog::debug("deviceID: {}", info.deviceID);
+  spdlog::debug("device: {}", info.device);
+  spdlog::debug("description: {}", info.description);
+  spdlog::debug("subgroup minimum size: {}", info.subgroupMinSize);
+  spdlog::debug("subgroup maximum size: {}", info.subgroupMaxSize);
+  spdlog::debug("adapter type: {}", info.adapterType);
+  spdlog::debug("backend type: {}", info.backendType);
 }
 void GPUContext::InitializeSurface(GLFWwindow *window) {
   spdlog::trace("Initializing surface for window. Window pointer: {}", static_cast<void*>(window));
@@ -140,7 +140,7 @@ void GPUContext::InitializeCallbacks(){
   if (initialized_state_ == InitializationState::Uninitalised) {
     wgpu::RequestAdapterOptions adapter_options = {};
     StartAdapterRequest(&adapter_options);
-    initialized_state_ = InitializationState::RequestingAdapter;
+    initialized_state_ = InitializationState::RequestedAdapter;
   }
   else if (initialized_state_ == InitializationState::RequestingDevice){
     InspectAdapter(adapter_);
@@ -170,6 +170,7 @@ void GPUContext::InitializeCallbacks(){
       if (message.data && message.length > 0) spdlog::info("({})", message);
     });
     StartDeviceRequest(&device_descriptor);
+    initialized_state_ = InitializationState::RequestedDevice;
   }
   else if (initialized_state_ == InitializationState::ReceivedAdapterAndDevice){
     InspectDevice(device_);
@@ -215,7 +216,7 @@ static ScrollingState scrolling_state_vertical = kMovingUp;
 static ScrollingState scrolling_state_horiziontal = kMovingRight;
 void GPUContext::Update(float delta_time, double total_time_elapsed_){
   #ifndef __EMSCRIPTEN__
-    if (delta_time < 0.03){
+    if (delta_time < 0.003){
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
       spdlog::warn("VSYNC not enabled, preventing overclocking!");
     }

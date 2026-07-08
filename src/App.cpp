@@ -9,6 +9,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/html5.h>
+#include <GLFW/glfw3.h>
 #else
 #include <GLFW/glfw3.h>
 #endif
@@ -36,14 +37,16 @@ void App::Initalize(uint16_t width, uint16_t height, const std::string& title) {
   }
 }
 void App::LogTime(){
-  spdlog::debug("DeltaTime: {}", delta_time_);
+  
   int current_second = static_cast<int>(total_time_elapsed_);
   if (current_second == last_second_ + 10){
     last_second_ = current_second;
     spdlog::info("Seconds since program opened: {}", current_second);
+    spdlog::debug("DeltaTime: {}", delta_time_);
   }
   else{
     spdlog::trace("Time since program opened: {}", static_cast<float>(total_time_elapsed_));
+    spdlog::trace("DeltaTime: {}", delta_time_);
   }
 }
 void App::CalculateDeltaTime(){

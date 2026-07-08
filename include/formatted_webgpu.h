@@ -7,8 +7,9 @@
 
 enum class InitializationState{
   Uninitalised,
-  RequestingAdapter,
+  RequestedAdapter,
   RequestingDevice,
+  RequestedDevice,
   ReceivedAdapterAndDevice,
   Ready,
   Failed
@@ -138,8 +139,9 @@ namespace wgpu {
 [[nodiscard]] constexpr std::string_view format_as(InitializationState state) noexcept {
   switch (state) {
     case InitializationState::Uninitalised:             return "Uninitalised";
-    case InitializationState::RequestingAdapter:        return "RequestingAdapter";
+    case InitializationState::RequestedAdapter:        return "RequestingAdapter";
     case InitializationState::RequestingDevice:         return "RequestingDevice";
+    case InitializationState::RequestedDevice:         return "RequestedDevice";
     case InitializationState::ReceivedAdapterAndDevice: return "ReceivedAdapterAndDevice";
     case InitializationState::Ready:                    return "Ready";
     case InitializationState::Failed:                   return "Failed";
