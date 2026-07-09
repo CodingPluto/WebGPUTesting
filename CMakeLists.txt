@@ -22,6 +22,7 @@ endif()
 
 find_package(spdlog CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(EnTT CONFIG REQUIRED)
 
 add_executable(App 
   src/main.cpp
@@ -31,9 +32,12 @@ add_executable(App
   src/ShaderLoader.cpp
   src/BufferFactory.cpp
   src/RenderPipelineFactory.cpp
+  src/Scene.cpp
+  src/RenderDataPacker.cpp
 )
 
 target_link_libraries(App PRIVATE glm::glm)
+target_link_libraries(App PRIVATE EnTT::EnTT)
 
 if (APPLE)
   set_source_files_properties(src/glfw3webgpu.c PROPERTIES COMPILE_FLAGS "-x objective-c++ -w")

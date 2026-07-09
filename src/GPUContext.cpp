@@ -1,12 +1,15 @@
 #include "GPUContext.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 #include <webgpu/webgpu_cpp.h>
 #include <spdlog/spdlog.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 #include <GLFW/glfw3.h>
 
 #include "App.hpp"
@@ -16,11 +19,11 @@
 #include "glfw3webgpu.h"
 #include "BufferFactory.hpp"
 
-enum BindingType{
+enum BindingType {
   kUniforms = 0,
-  kComputeInput = 1,
-  kComputeOutput = 2
+  kObjectData
 };
+
 
 struct Uniforms {
   glm::f32 time = 0; // at byte offset 0
@@ -28,6 +31,11 @@ struct Uniforms {
   std::array<glm::f32, 2> padding = {};
   glm::mat4 projection_matrix = {};
 }; // Apparently takes 80 bytes!  Starts at an offset of 16.
+void GPUContext::SetObjects(const std::vector<ObjectData> &objects){
+  objects_ = std::move(objects);
+}
+
+
 void GPUContext::StartAdapterRequest(const wgpu::RequestAdapterOptions *options) {
   instance_.RequestAdapter(
     options,GetPlatformCallbackMode(), [this](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, wgpu::StringView message) {
@@ -160,6 +168,8 @@ void GPUContext::InitializeCallbacks(){
     limits.maxBindGroups = 1;
     limits.maxUniformBuffersPerShaderStage = 1;
     limits.maxUniformBufferBindingSize = 2000;
+    limits.maxStorageBufferBindingSize = 1024 * 1024;
+    limits.maxStorageBuffersPerShaderStage = 1;
     device_descriptor.requiredLimits = &limits;
     device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
       spdlog::warn("Device lost. reason: {}", reason);
@@ -204,18 +214,10 @@ std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GPUContext::GetNextSurfaceVie
   wgpu::TextureView target_view = surface_texture.texture.CreateView(&view_descriptor);
   return {surface_texture, target_view};
 }
-enum ScrollingState{
-  kMovingUp = 0,
-  kMovingDown = 1,
-  kMovingLeft = 2,
-  kMovingRight = 3
-};
 
-
-static ScrollingState scrolling_state_vertical = kMovingUp;
-static ScrollingState scrolling_state_horiziontal = kMovingRight;
 void GPUContext::Update(float delta_time, double total_time_elapsed_){
   #ifndef __EMSCRIPTEN__
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
     if (delta_time < 0.003){
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
       spdlog::warn("VSYNC not enabled, preventing overclocking!");
@@ -229,48 +231,13 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   if (shader_last_edited_ != ShaderLoader::GetLastEdited("assets/shader.wgsl")){
     HotReloadShaders();
   }
-
-  const float scroll_speed = 180 * delta_time;
-  if (camera_y > surface_configuration_.height - 68){
-    scrolling_state_vertical = kMovingUp;
-  }
-  if (camera_y < 5){
-    scrolling_state_vertical = kMovingDown;
-  }
-  if (camera_x < 45){
-    scrolling_state_horiziontal = kMovingRight;
-  }
-  if (camera_x > surface_configuration_.width - 73){
-    scrolling_state_horiziontal = kMovingLeft;
-  }
-  switch(scrolling_state_vertical){
-    case kMovingUp:
-      camera_y -= scroll_speed;
-      break;
-    case kMovingDown:
-      camera_y += scroll_speed;
-      break;
-    default:
-      break;
-  }
-  switch(scrolling_state_horiziontal){
-    case kMovingLeft:
-      camera_x -= scroll_speed;
-      break;
-    case kMovingRight:
-      camera_x += scroll_speed;
-      break;
-    default:
-      break;
-  }
-
-
   UpdateViewProjectionMatrices();
   Uniforms uniforms = {
     .time = static_cast<float>(total_time_elapsed_),
     .delta_time = (glm::f32)delta_time,
     .projection_matrix = projection_matrix_
   };
+  queue_.WriteBuffer(storage_buffer_, 0, objects_.data(), objects_.size() * sizeof(ObjectData));
   queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
   auto [surface_view, target_view] = GetNextSurfaceViewData();
   wgpu::CommandEncoderDescriptor encoder_descriptor = {.nextInChain = nullptr, .label = "My command encoder"};
@@ -294,14 +261,16 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   render_pass.SetVertexBuffer(0, vertex_buffer_, 0, vertex_buffer_.GetSize());
   render_pass.SetIndexBuffer(index_buffer_, wgpu::IndexFormat::Uint16, 0, index_buffer_.GetSize());
   render_pass.SetBindGroup(0, bind_group_, 0, nullptr);
-  render_pass.DrawIndexed(index_count_, 1, 0,0, 0);
+  render_pass.DrawIndexed(index_count_, object_count_, 0,0, 0);
+  // might need to change instanceCount to a different variable if we allocate differently in the future.
   render_pass.End();
-  wgpu::ComputePassDescriptor compute_pass_descriptor = {.timestampWrites = nullptr};
-  wgpu::ComputePassEncoder compute_pass = encoder.BeginComputePass(&compute_pass_descriptor);
-  compute_pass.SetPipeline(compute_pipeline_);
-  // Set Bind Group here
-  compute_pass.DispatchWorkgroups(1,1,1);
-  compute_pass.End();
+
+  // wgpu::ComputePassDescriptor compute_pass_descriptor = {.timestampWrites = nullptr};
+  // wgpu::ComputePassEncoder compute_pass = encoder.BeginComputePass(&compute_pass_descriptor);
+  // compute_pass.SetPipeline(compute_pipeline_);
+  // // Set Bind Group here
+  // compute_pass.DispatchWorkgroups(1,1,1);
+  // compute_pass.End();
   wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
   wgpu::CommandBuffer command = encoder.Finish(&command_buffer_descriptor);
   spdlog::trace("Submitting command..");
@@ -315,7 +284,7 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   #endif
 }
 void GPUContext::CreatePipelineLayout() {
-  std::vector<wgpu::BindGroupLayoutEntry> bindings(1);
+  std::vector<wgpu::BindGroupLayoutEntry> bindings(2);
   for (auto &b : bindings){
     b = {};
   }
@@ -323,6 +292,10 @@ void GPUContext::CreatePipelineLayout() {
   bindings[BindingType::kUniforms].visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
   bindings[BindingType::kUniforms].buffer.type = wgpu::BufferBindingType::Uniform;
   bindings[BindingType::kUniforms].buffer.minBindingSize = sizeof(Uniforms);
+  bindings[BindingType::kObjectData].binding = 1;
+  bindings[BindingType::kObjectData].visibility = wgpu::ShaderStage::Vertex;
+  bindings[BindingType::kObjectData].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+  bindings[BindingType::kObjectData].buffer.minBindingSize = sizeof(ObjectData);
   wgpu::BindGroupLayoutDescriptor bind_group_layout_descriptor = {};
   bind_group_layout_descriptor.entryCount = (uint32_t)bindings.size();
   bind_group_layout_descriptor.entries = bindings.data();
@@ -364,15 +337,27 @@ void GPUContext::CreateRenderPipeline(){
   UpdateViewProjectionMatrices();
   Uniforms uniforms = {.time = 0.0, .delta_time = kDefaultDeltaTime, .projection_matrix = projection_matrix_};
   queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
-  wgpu::BindGroupEntry binding = {};
-  binding.binding = 0;
-  binding.buffer = uniform_buffer_;
-  binding.offset = 0;
-  binding.size = sizeof(Uniforms);
+  
+  objects_.resize(100); // THIS NEEDS TO BE FIXED
+    for (int i = 0; i < 100; ++i){
+      objects_[i] = {.model_matrix = {glm::mat4(1.0f)}};
+    }
+  wgpu::BufferDescriptor storage_descriptor = {
+    .usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst,
+    .size = objects_.size() * sizeof(ObjectData)
+  };
+  storage_buffer_ = device_.CreateBuffer(&storage_descriptor);
+  std::vector<wgpu::BindGroupEntry> entries(2);
+  entries[BindingType::kUniforms].binding = 0;
+  entries[BindingType::kUniforms].buffer = uniform_buffer_;
+  entries[BindingType::kUniforms].size = sizeof(Uniforms);
+  entries[BindingType::kObjectData].binding = 1;
+  entries[BindingType::kObjectData].buffer = storage_buffer_;
+  entries[BindingType::kObjectData].size = objects_.size() * sizeof(ObjectData);
   wgpu::BindGroupDescriptor bind_group_descriptor = {};
   bind_group_descriptor.layout = bind_group_layout_;
-  bind_group_descriptor.entryCount = 1;
-  bind_group_descriptor.entries = &binding;
+  bind_group_descriptor.entryCount = (uint32_t)entries.size();
+  bind_group_descriptor.entries = entries.data();
   bind_group_ = device_.CreateBindGroup(&bind_group_descriptor);
 }
 void GPUContext::CreateResources() {

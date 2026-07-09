@@ -8,13 +8,22 @@
 #include <spdlog/spdlog.h>
 #include <fstream>
 #include <glm/glm.hpp>
+#include <array>
 
 #include "formatted_webgpu.h"
+struct ObjectData {
+  //glm::vec3 color = glm::vec3(1.0,1.0,1.0);
+  glm::mat4 model_matrix = glm::mat4(1.0);
+  //std::array<float,1> _padding = {};
+};
 
 class GPUContext {
 private:
-  float camera_x = 250;
-  float camera_y = 250;
+  float camera_x = 0;
+  float camera_y = 0;
+  std::vector<ObjectData> objects_;
+  wgpu::Buffer storage_buffer_;
+  uint32_t object_count_ = 100;
   // --- WebGPU Handles ---
   wgpu::Instance instance_ = nullptr;
   wgpu::Adapter adapter_ = nullptr;
@@ -47,6 +56,7 @@ private:
   InitializationState initialized_state_ = InitializationState::Uninitalised;
 
 public:
+  void SetObjects(const std::vector<ObjectData> &objects);
   void StartAdapterRequest(const wgpu::RequestAdapterOptions *options);
   void StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor);
   void OutputFeatures(const wgpu::SupportedFeatures &features);

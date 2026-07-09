@@ -3,6 +3,7 @@
     "dawn",
     "glfw3",
     "spdlog",
-    "glm"
+    "glm",
+    "entt"
   ]
 }

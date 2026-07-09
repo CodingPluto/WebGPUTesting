@@ -5,7 +5,14 @@ struct Uniforms {
   projection_matrix: mat4x4<f32>
 }
 
+struct ObjectData {
+  //color : vec3f,
+  model_matrix: mat4x4f
+}
+
+
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<storage, read> objects: array<ObjectData>;
 
 struct VertexOutput{
   @builtin(position) position: vec4f,
@@ -13,13 +20,12 @@ struct VertexOutput{
 };
 
 @vertex
-fn vs_main(@location(0) position: vec2f, @location(1) color: vec3f) -> VertexOutput{
+fn vs_main(@location(0) position: vec2f, @location(1) color: vec3f, @builtin(instance_index) instance_index: u32) -> VertexOutput{
   var out : VertexOutput;
+  let model_matrix = objects[instance_index].model_matrix;
 
-  var offset = vec2f(cos(uniforms.time * 2), sin(uniforms.time * 2)) * 0.2;
-  out.position = vec4f(position.x - 0.6 + offset.x, position.y - 0.3 + offset.y, 0.0, 1);
-  out.position = uniforms.projection_matrix * vec4f(out.position.x, out.position.y, 0.0, 1);
-  out.color = vec3f(color.x, color.y + cos(uniforms.time) * 0.2, color.z + sin(uniforms.time) * 0.2);
+  out.position = uniforms.projection_matrix * model_matrix * vec4f(position.x, position.y, 0.0, 1);
+  out.color = color;
 
   return out;
 }

@@ -16,6 +16,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "App.hpp"
+#include "Scene.hpp"
 
 
 #ifdef _WIN32
@@ -87,15 +88,18 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   FixWorkingDirectory();
   App app = {};
   GPUContext gpu = {};
+  Scene scene = {};
   app.Initalize(1280, 720, "WebGPU Boids");
   gpu.InitializeInstance();
   gpu.InitializeSurface(app.GetWindow());
+  scene.Initalize();
   #ifdef __EMSCRIPTEN__
     EmscriptenArgs emscripten_args = {.app = app, .gpu = gpu};
     emscripten_set_main_loop_arg(EmscriptenLoop, &emscripten_args, 0, true);
   #else
     while (app.IsRunning()){
       app.Update();
+      scene.UpdateGPUObjectData(gpu);
       gpu.Update(app.GetDeltaTime(), app.GetTotalTimeElapsed());
     }
   app.Shutdown();
