@@ -23,6 +23,7 @@ endif()
 find_package(spdlog CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 
 add_executable(App 
   src/main.cpp
@@ -34,8 +35,9 @@ add_executable(App
   src/RenderPipelineFactory.cpp
   src/Scene.cpp
   src/RenderDataPacker.cpp
+  src/ImGuiManager.cpp
 )
-
+target_link_libraries(App PRIVATE imgui::imgui)
 target_link_libraries(App PRIVATE glm::glm)
 target_link_libraries(App PRIVATE EnTT::EnTT)
 
@@ -86,7 +88,6 @@ if (XCODE)
     )
 endif()
 
-
 if (EMSCRIPTEN)
   #target_compile_definitions(App PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
   target_compile_options(App PRIVATE --use-port=emdawnwebgpu) # Supplies dawn files to compiler. Needed for includes.
@@ -104,12 +105,18 @@ if (EMSCRIPTEN)
     )
   target_link_options(App PRIVATE
         -sUSE_GLFW=3
-        --use-port=emdawnwebgpu
+        #--use-port=emdawnwebgpu - I think imGUI uses this already so adding it twice throws an error.
         --preload-file ${CMAKE_SOURCE_DIR}/assets@assets/
         --shell-file my_custom_shell.html
     )
   set_target_properties(App PROPERTIES SUFFIX ".html")
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_link_options(App PRIVATE
+        -sASYNCIFY
+    )
+  endif()
 endif()
+
 
 add_custom_target(copy_assets ALL
   COMMAND ${CMAKE_COMMAND} -E copy_directory

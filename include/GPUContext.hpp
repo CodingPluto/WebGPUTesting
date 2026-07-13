@@ -12,18 +12,17 @@
 
 #include "formatted_webgpu.h"
 struct ObjectData {
-  //glm::vec3 color = glm::vec3(1.0,1.0,1.0);
+  glm::vec3 color = glm::vec3(1.0,1.0,1.0);
+  float padding_1 = 0.0;
   glm::mat4 model_matrix = glm::mat4(1.0);
-  //std::array<float,1> _padding = {};
 };
 
 class GPUContext {
 private:
+  static constexpr size_t kMaxObjects = 50000;
   float camera_x = 0;
   float camera_y = 0;
-  std::vector<ObjectData> objects_;
   wgpu::Buffer storage_buffer_;
-  uint32_t object_count_ = 100;
   // --- WebGPU Handles ---
   wgpu::Instance instance_ = nullptr;
   wgpu::Adapter adapter_ = nullptr;
@@ -41,6 +40,8 @@ private:
   wgpu::PipelineLayout pipeline_layout_ = nullptr;
   wgpu::BindGroupLayout bind_group_layout_ = nullptr;
   wgpu::BindGroup bind_group_ = nullptr;
+  wgpu::RenderPassEncoder render_pass_ = nullptr;
+  wgpu::CommandEncoder encoder_ = nullptr;
   
   wgpu::Buffer vertex_buffer_ = nullptr;
   wgpu::Buffer index_buffer_ = nullptr;
@@ -55,8 +56,10 @@ private:
   std::filesystem::file_time_type shader_last_edited_ = {};
   InitializationState initialized_state_ = InitializationState::Uninitalised;
 
+
+  std::vector<ObjectData> object_data_scratchpad = {};
 public:
-  void SetObjects(const std::vector<ObjectData> &objects);
+  std::vector<ObjectData>& GetObjectDataScratchPadReference(){ return object_data_scratchpad;}
   void StartAdapterRequest(const wgpu::RequestAdapterOptions *options);
   void StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor);
   void OutputFeatures(const wgpu::SupportedFeatures &features);
@@ -69,6 +72,7 @@ public:
   //void ConfigureSurface(GLFWwindow* window);
 
   void Update(float delta_time, double total_time_elapsed_);
+  void Render();
   void InitializeCallbacks();
 
   void ConfigureSurface();
@@ -83,6 +87,10 @@ public:
   std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GetNextSurfaceViewData();
 
   void CreateShaderModules();
+  wgpu::RenderPassEncoder& GetRenderPassEncoder() { return render_pass_; }
+  wgpu::Device& GetDevice(){ return device_; }
+  wgpu::TextureFormat& GetSurfaceFormat(){ return surface_format_; }
+  InitializationState GetInitalizationState(){ return initialized_state_;}
 };
 
 [[nodiscard]] consteval wgpu::CallbackMode GetPlatformCallbackMode(){

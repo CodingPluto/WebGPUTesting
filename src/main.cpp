@@ -1,4 +1,6 @@
 #include "GPUContext.hpp"
+#include "RenderDataPacker.hpp"
+#include "formatted_webgpu.h"
 #include <glm/fwd.hpp>
 #include <cassert>
 #include <spdlog/logger.h>
@@ -17,6 +19,7 @@
 
 #include "App.hpp"
 #include "Scene.hpp"
+#include "ImGuiManager.hpp"
 
 
 #ifdef _WIN32
@@ -61,23 +64,45 @@ void FixWorkingDirectory() {
 
 
 
-void Initialize([[maybe_unused]]App &app){}
-void Shutdown([[maybe_unused]]App &app){}
-void Update([[maybe_unused]]App &app){}
+// void Initialize([[maybe_unused]]App &app){}
+// void Shutdown([[maybe_unused]]App &app){}
+// void Update([[maybe_unused]]App &app){}
+
+static bool ticked = false;
+
+void MainLoop(App &app, Scene &scene, GPUContext &gpu, ImGuiManager &imgui_manager){
+  app.Update();
+  scene.Update(app.GetDeltaTime());
+  UpdateGPUObjectData(gpu, scene.GetRegistry());
+  if (gpu.GetInitalizationState() == InitializationState::Ready && !ticked){
+    spdlog::debug("attempting to initalise spdlog.");
+    imgui_manager.Initialize(app.GetWindow(),gpu.GetDevice(),gpu.GetSurfaceFormat());
+  }
+  if (gpu.GetInitalizationState() == InitializationState::Ready){
+    ticked = true;
+  }
+  if (gpu.GetInitalizationState() == InitializationState::Ready) imgui_manager.BeginFrame();
+  gpu.Update(app.GetDeltaTime(), app.GetTotalTimeElapsed());
+  if (gpu.GetInitalizationState() == InitializationState::Ready && ticked) imgui_manager.EndFrame(gpu.GetRenderPassEncoder());
+  if (gpu.GetInitalizationState() == InitializationState::Ready && ticked){
+    gpu.Render();
+  }
+
+}
+
 #ifdef __EMSCRIPTEN__
 struct EmscriptenArgs{
   App &app;
   GPUContext &gpu;
+  Scene &scene;
+  ImGuiManager &imgui_manager;
 };
 void EmscriptenLoop(void* arg) {
   EmscriptenArgs* emscripten_args = static_cast<EmscriptenArgs*>(arg);
-  App &app = emscripten_args->app;
-  GPUContext &gpu = emscripten_args->gpu;
-  app.Update();
-  gpu.Update(app.GetDeltaTime(), app.GetTotalTimeElapsed());
-  if (!app.IsRunning()) {
+  MainLoop(emscripten_args->app, emscripten_args->scene, emscripten_args->gpu, emscripten_args->imgui_manager);
+  if (!emscripten_args->app.IsRunning()) {
       emscripten_cancel_main_loop();
-      app.Shutdown();
+      emscripten_args->app.Shutdown();
   }
 }
 #endif
@@ -89,20 +114,20 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   App app = {};
   GPUContext gpu = {};
   Scene scene = {};
+  ImGuiManager imgui_manager = {};
   app.Initalize(1280, 720, "WebGPU Boids");
   gpu.InitializeInstance();
   gpu.InitializeSurface(app.GetWindow());
   scene.Initalize();
   #ifdef __EMSCRIPTEN__
-    EmscriptenArgs emscripten_args = {.app = app, .gpu = gpu};
+    EmscriptenArgs emscripten_args = {.app = app, .gpu = gpu, .scene = scene, .imgui_manager = imgui_manager};
     emscripten_set_main_loop_arg(EmscriptenLoop, &emscripten_args, 0, true);
   #else
     while (app.IsRunning()){
-      app.Update();
-      scene.UpdateGPUObjectData(gpu);
-      gpu.Update(app.GetDeltaTime(), app.GetTotalTimeElapsed());
+      MainLoop(app, scene, gpu, imgui_manager);
     }
   app.Shutdown();
+  imgui_manager.Shutdown();
   #endif
 }
 

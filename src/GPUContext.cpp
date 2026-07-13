@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
+#include <imgui.h>
 #include <webgpu/webgpu_cpp.h>
 #include <spdlog/spdlog.h>
 #include <glm/glm.hpp>
@@ -11,6 +12,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <GLFW/glfw3.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_wgpu.h>
 
 #include "App.hpp"
 #include "RenderPipelineFactory.hpp"
@@ -18,6 +21,10 @@
 #include "formatted_webgpu.h"
 #include "glfw3webgpu.h"
 #include "BufferFactory.hpp"
+#include "RenderDataPacker.hpp"
+#ifndef NDEBUG
+  #include "DebugTools.hpp"
+#endif
 
 enum BindingType {
   kUniforms = 0,
@@ -31,9 +38,6 @@ struct Uniforms {
   std::array<glm::f32, 2> padding = {};
   glm::mat4 projection_matrix = {};
 }; // Apparently takes 80 bytes!  Starts at an offset of 16.
-void GPUContext::SetObjects(const std::vector<ObjectData> &objects){
-  objects_ = std::move(objects);
-}
 
 
 void GPUContext::StartAdapterRequest(const wgpu::RequestAdapterOptions *options) {
@@ -189,6 +193,11 @@ void GPUContext::InitializeCallbacks(){
     ConfigureSurface();
     CreateRenderPipeline();
     CreateComputePipeline();
+    //ImGui::CreateContext();
+    //ImGui::StyleColorsLight();
+    //ImGui_ImplGlfw_InitForOther(window, true);
+    //ImGui_ImplWGPU_Init();
+
     initialized_state_ = InitializationState::Ready;
   }
 }
@@ -214,10 +223,11 @@ std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GPUContext::GetNextSurfaceVie
   wgpu::TextureView target_view = surface_texture.texture.CreateView(&view_descriptor);
   return {surface_texture, target_view};
 }
-
 void GPUContext::Update(float delta_time, double total_time_elapsed_){
+  #ifndef NDEBUG
+    if (initialized_state_ == InitializationState::Ready) DebugSleep(0.016);
+  #endif
   #ifndef __EMSCRIPTEN__
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
     if (delta_time < 0.003){
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
       spdlog::warn("VSYNC not enabled, preventing overclocking!");
@@ -231,17 +241,18 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   if (shader_last_edited_ != ShaderLoader::GetLastEdited("assets/shader.wgsl")){
     HotReloadShaders();
   }
+
   UpdateViewProjectionMatrices();
   Uniforms uniforms = {
     .time = static_cast<float>(total_time_elapsed_),
     .delta_time = (glm::f32)delta_time,
     .projection_matrix = projection_matrix_
   };
-  queue_.WriteBuffer(storage_buffer_, 0, objects_.data(), objects_.size() * sizeof(ObjectData));
+  queue_.WriteBuffer(storage_buffer_, 0, object_data_scratchpad.data(), object_data_scratchpad.size() * sizeof(ObjectData));
   queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
   auto [surface_view, target_view] = GetNextSurfaceViewData();
   wgpu::CommandEncoderDescriptor encoder_descriptor = {.nextInChain = nullptr, .label = "My command encoder"};
-  wgpu::CommandEncoder encoder = device_.CreateCommandEncoder(&encoder_descriptor);
+  encoder_ = device_.CreateCommandEncoder(&encoder_descriptor);
   wgpu::RenderPassDescriptor render_pass_descriptor = {
     .colorAttachmentCount = 1,
     .depthStencilAttachment = nullptr,
@@ -256,14 +267,14 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
     .clearValue = wgpu::Color{0.05, 0.05, 0.05, 1.0}
   }; // resolve target for multi-sampling
   render_pass_descriptor.colorAttachments = &color_attachment;
-  wgpu::RenderPassEncoder render_pass = encoder.BeginRenderPass(&render_pass_descriptor);
-  render_pass.SetPipeline(pipeline_);
-  render_pass.SetVertexBuffer(0, vertex_buffer_, 0, vertex_buffer_.GetSize());
-  render_pass.SetIndexBuffer(index_buffer_, wgpu::IndexFormat::Uint16, 0, index_buffer_.GetSize());
-  render_pass.SetBindGroup(0, bind_group_, 0, nullptr);
-  render_pass.DrawIndexed(index_count_, object_count_, 0,0, 0);
+  render_pass_ = encoder_.BeginRenderPass(&render_pass_descriptor);
+  render_pass_.SetPipeline(pipeline_);
+  render_pass_.SetVertexBuffer(0, vertex_buffer_, 0, vertex_buffer_.GetSize());
+  render_pass_.SetIndexBuffer(index_buffer_, wgpu::IndexFormat::Uint16, 0, index_buffer_.GetSize());
+  render_pass_.SetBindGroup(0, bind_group_, 0, nullptr);
+  render_pass_.DrawIndexed(index_count_, object_data_scratchpad.size(), 0,0, 0);
   // might need to change instanceCount to a different variable if we allocate differently in the future.
-  render_pass.End();
+  
 
   // wgpu::ComputePassDescriptor compute_pass_descriptor = {.timestampWrites = nullptr};
   // wgpu::ComputePassEncoder compute_pass = encoder.BeginComputePass(&compute_pass_descriptor);
@@ -271,8 +282,12 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   // // Set Bind Group here
   // compute_pass.DispatchWorkgroups(1,1,1);
   // compute_pass.End();
+
+}
+void GPUContext::Render(){
+  render_pass_.End();
   wgpu::CommandBufferDescriptor command_buffer_descriptor = {.nextInChain = nullptr, .label = "My command buffer"};
-  wgpu::CommandBuffer command = encoder.Finish(&command_buffer_descriptor);
+  wgpu::CommandBuffer command = encoder_.Finish(&command_buffer_descriptor);
   spdlog::trace("Submitting command..");
   queue_.Submit(1, &command);
   spdlog::trace("Command submitted");
@@ -337,14 +352,9 @@ void GPUContext::CreateRenderPipeline(){
   UpdateViewProjectionMatrices();
   Uniforms uniforms = {.time = 0.0, .delta_time = kDefaultDeltaTime, .projection_matrix = projection_matrix_};
   queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
-  
-  objects_.resize(100); // THIS NEEDS TO BE FIXED
-    for (int i = 0; i < 100; ++i){
-      objects_[i] = {.model_matrix = {glm::mat4(1.0f)}};
-    }
   wgpu::BufferDescriptor storage_descriptor = {
     .usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst,
-    .size = objects_.size() * sizeof(ObjectData)
+    .size = kMaxObjects * sizeof(ObjectData)
   };
   storage_buffer_ = device_.CreateBuffer(&storage_descriptor);
   std::vector<wgpu::BindGroupEntry> entries(2);
@@ -353,7 +363,8 @@ void GPUContext::CreateRenderPipeline(){
   entries[BindingType::kUniforms].size = sizeof(Uniforms);
   entries[BindingType::kObjectData].binding = 1;
   entries[BindingType::kObjectData].buffer = storage_buffer_;
-  entries[BindingType::kObjectData].size = objects_.size() * sizeof(ObjectData);
+  entries[BindingType::kObjectData].size = kMaxObjects * sizeof(ObjectData);
+  spdlog::debug("Size of Object Data: {}", sizeof(ObjectData));
   wgpu::BindGroupDescriptor bind_group_descriptor = {};
   bind_group_descriptor.layout = bind_group_layout_;
   bind_group_descriptor.entryCount = (uint32_t)entries.size();

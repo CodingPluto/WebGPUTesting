@@ -6,7 +6,7 @@ struct Uniforms {
 }
 
 struct ObjectData {
-  //color : vec3f,
+  color : vec3f,
   model_matrix: mat4x4f
 }
 
@@ -23,9 +23,9 @@ struct VertexOutput{
 fn vs_main(@location(0) position: vec2f, @location(1) color: vec3f, @builtin(instance_index) instance_index: u32) -> VertexOutput{
   var out : VertexOutput;
   let model_matrix = objects[instance_index].model_matrix;
-
+  let object_color = objects[instance_index].color;
   out.position = uniforms.projection_matrix * model_matrix * vec4f(position.x, position.y, 0.0, 1);
-  out.color = color;
+  out.color = color * object_color;
 
   return out;
 }

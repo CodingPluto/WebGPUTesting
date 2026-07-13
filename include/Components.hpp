@@ -15,7 +15,18 @@ struct ColorComponent{
   glm::vec3 color = {1.0,1.0,1.0};
 };
 
+struct NameComponent{
+  std::string name = "DEFAULT_NAME";
+};
 
+struct BoidComponent{
+  uint32_t boid_number = 0;
+  glm::vec2 velocity = {};
+  glm::vec2 acceleration = {};
+  float max_speed = 4;
+  float max_force = 2;
+  float perception_radius = 50;
+};
 
 // template <typename... Types>
 // struct ComponentList {};

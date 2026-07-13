@@ -93,7 +93,8 @@
       "args": [
         "--build",
         "--preset",
-        "debug (web)"
+        "debug (web)",
+        "--clean-first"
       ]
     },
     {

@@ -14,7 +14,7 @@ public:
 
   void Initalize();
   void Update(float delta_time);
-  void UpdateGPUObjectData(GPUContext &gpu);
+  const entt::registry &GetRegistry() { return registry_;}
 };
 
 

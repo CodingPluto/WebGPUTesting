@@ -4,6 +4,13 @@
     "glfw3",
     "spdlog",
     "glm",
-    "entt"
+    "entt",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "webgpu-binding"
+      ]
+    }
   ]
 }
