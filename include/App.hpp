@@ -1,6 +1,10 @@
 #ifndef INCLUDE_APP_HPP_
 #define INCLUDE_APP_HPP_
 
+#include "GPUContext.hpp"
+#include "ImGuiManager.hpp"
+#include "Scene.hpp"
+#include "formatted_webgpu.h"
 #include <chrono>
 #include <memory>
 
@@ -18,7 +22,11 @@ class App {
   App() = default;
   ~App() = default;
   void Initalize(uint16_t width, uint16_t height, const std::string &title);
+  bool IsInitalized() {return initialized_state_ == InitializationState::Ready;}
+  inline void SetInitalizedState(InitializationState state){initialized_state_ = state;}
+  void UpdateInitalization();
   void Update();
+  
   void Shutdown();
   [[nodiscard]] bool IsRunning() const;
   [[nodiscard]] GLFWwindow* GetWindow() const {return window_;};
@@ -26,6 +34,10 @@ class App {
   [[nodiscard]] double GetTotalTimeElapsed() const;
 
  private:
+  GPUContext gpu = {};
+  Scene scene = {};
+  ImGuiManager imgui_manager = {};
+  InitializationState initialized_state_ = InitializationState::Uninitalised;
   void CalculateDeltaTime();
   void InitializeLogging();
   void LogTime();

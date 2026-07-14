@@ -68,38 +68,23 @@ void FixWorkingDirectory() {
 // void Shutdown([[maybe_unused]]App &app){}
 // void Update([[maybe_unused]]App &app){}
 
-static bool ticked = false;
 
-void MainLoop(App &app, Scene &scene, GPUContext &gpu, ImGuiManager &imgui_manager){
-  app.Update();
-  scene.Update(app.GetDeltaTime());
-  UpdateGPUObjectData(gpu, scene.GetRegistry());
-  if (gpu.GetInitalizationState() == InitializationState::Ready && !ticked){
-    spdlog::debug("attempting to initalise spdlog.");
-    imgui_manager.Initialize(app.GetWindow(),gpu.GetDevice(),gpu.GetSurfaceFormat());
+void MainLoop(App &app){
+  if (app.IsInitalized()){
+    app.Update();
   }
-  if (gpu.GetInitalizationState() == InitializationState::Ready){
-    ticked = true;
+  else{
+    app.UpdateInitalization();
   }
-  if (gpu.GetInitalizationState() == InitializationState::Ready) imgui_manager.BeginFrame();
-  gpu.Update(app.GetDeltaTime(), app.GetTotalTimeElapsed());
-  if (gpu.GetInitalizationState() == InitializationState::Ready && ticked) imgui_manager.EndFrame(gpu.GetRenderPassEncoder());
-  if (gpu.GetInitalizationState() == InitializationState::Ready && ticked){
-    gpu.Render();
-  }
-
 }
 
 #ifdef __EMSCRIPTEN__
 struct EmscriptenArgs{
   App &app;
-  GPUContext &gpu;
-  Scene &scene;
-  ImGuiManager &imgui_manager;
 };
 void EmscriptenLoop(void* arg) {
   EmscriptenArgs* emscripten_args = static_cast<EmscriptenArgs*>(arg);
-  MainLoop(emscripten_args->app, emscripten_args->scene, emscripten_args->gpu, emscripten_args->imgui_manager);
+  MainLoop(emscripten_args->app);
   if (!emscripten_args->app.IsRunning()) {
       emscripten_cancel_main_loop();
       emscripten_args->app.Shutdown();
@@ -112,22 +97,16 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   #endif
   FixWorkingDirectory();
   App app = {};
-  GPUContext gpu = {};
-  Scene scene = {};
-  ImGuiManager imgui_manager = {};
   app.Initalize(1280, 720, "WebGPU Boids");
-  gpu.InitializeInstance();
-  gpu.InitializeSurface(app.GetWindow());
-  scene.Initalize();
+  // al
   #ifdef __EMSCRIPTEN__
-    EmscriptenArgs emscripten_args = {.app = app, .gpu = gpu, .scene = scene, .imgui_manager = imgui_manager};
+    EmscriptenArgs emscripten_args = {.app = app};
     emscripten_set_main_loop_arg(EmscriptenLoop, &emscripten_args, 0, true);
   #else
     while (app.IsRunning()){
-      MainLoop(app, scene, gpu, imgui_manager);
+      MainLoop(app);
     }
   app.Shutdown();
-  imgui_manager.Shutdown();
   #endif
 }
 

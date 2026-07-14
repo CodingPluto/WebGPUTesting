@@ -54,14 +54,13 @@ private:
   uint32_t index_count_ = 0;
 
   std::filesystem::file_time_type shader_last_edited_ = {};
-  InitializationState initialized_state_ = InitializationState::Uninitalised;
 
 
   std::vector<ObjectData> object_data_scratchpad = {};
 public:
   std::vector<ObjectData>& GetObjectDataScratchPadReference(){ return object_data_scratchpad;}
-  void StartAdapterRequest(const wgpu::RequestAdapterOptions *options);
-  void StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor);
+  void StartAdapterRequest(const wgpu::RequestAdapterOptions *options, class App &app);
+  void StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor, class App &app);
   void OutputFeatures(const wgpu::SupportedFeatures &features);
   void OutputLimits(const wgpu::Limits &limits);
   void InspectDevice(wgpu::Device device);
@@ -74,14 +73,14 @@ public:
   void Update(float delta_time, double total_time_elapsed_);
   void Render();
   void InitializeCallbacks();
-
+  void ConfigureQueue();
   void ConfigureSurface();
   void CreatePipelineLayout();
   void CreateRenderPipeline();
   void CreateComputePipeline();
   void CreateResources();
   void HotReloadShaders();
-
+  void ProcessEvents();
   void UpdateViewProjectionMatrices();
 
   std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GetNextSurfaceViewData();
@@ -89,8 +88,8 @@ public:
   void CreateShaderModules();
   wgpu::RenderPassEncoder& GetRenderPassEncoder() { return render_pass_; }
   wgpu::Device& GetDevice(){ return device_; }
+  wgpu::Adapter& GetAdapter(){ return adapter_; }
   wgpu::TextureFormat& GetSurfaceFormat(){ return surface_format_; }
-  InitializationState GetInitalizationState(){ return initialized_state_;}
 };
 
 [[nodiscard]] consteval wgpu::CallbackMode GetPlatformCallbackMode(){
