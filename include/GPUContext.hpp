@@ -11,6 +11,7 @@
 #include <array>
 
 #include "formatted_webgpu.h"
+
 struct ObjectData {
   glm::vec3 color = glm::vec3(1.0,1.0,1.0);
   float padding_1 = 0.0;
@@ -54,17 +55,14 @@ private:
   uint32_t index_count_ = 0;
 
   std::filesystem::file_time_type shader_last_edited_ = {};
-
-
   std::vector<ObjectData> object_data_scratchpad = {};
 public:
   std::vector<ObjectData>& GetObjectDataScratchPadReference(){ return object_data_scratchpad;}
-  void StartAdapterRequest(const wgpu::RequestAdapterOptions *options, class App &app);
-  void StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor, class App &app);
-  void OutputFeatures(const wgpu::SupportedFeatures &features);
-  void OutputLimits(const wgpu::Limits &limits);
-  void InspectDevice(wgpu::Device device);
-  void InspectAdapter(const wgpu::Adapter &adapter);
+  void StartAdapterRequest(const wgpu::RequestAdapterOptions *options, class StartupCoordinator &startup_coordinator);
+  void StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor, class StartupCoordinator &startup_coordinator);
+  void SetupAdapterRequest(class StartupCoordinator &startup_coordinator);
+  void SetupDeviceRequest(class StartupCoordinator &startup_coordinator);
+
 
   void InitializeInstance();
   void InitializeSurface(class GLFWwindow *window);

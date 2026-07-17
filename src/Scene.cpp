@@ -110,12 +110,14 @@ void Scene::Update([[maybe_unused]]float delta_time){
         glm::vec2 difference = this_boid_transform.position - other_boid_transform.position;
         this_boid.velocity +=  (difference * delta_time) * 0.01f;
       }
-      
 
       //this_boid_transform.position += this_boid_transform.position;
     }
     this_boid_transform.position += this_boid.velocity;
-
+    if (this_boid_transform.position.x < 0) this_boid_transform.position.x = 0;
+    if (this_boid_transform.position.y < 0) this_boid_transform.position.y = 0;
+    if (this_boid_transform.position.x > 1280 - 50) this_boid_transform.position.x = 1280 - 50;
+    if (this_boid_transform.position.y > 720 - 50) this_boid_transform.position.y = 720 - 50;
   }
 
 

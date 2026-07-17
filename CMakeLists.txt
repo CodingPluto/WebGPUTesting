@@ -36,6 +36,9 @@ add_executable(App
   src/Scene.cpp
   src/RenderDataPacker.cpp
   src/ImGuiManager.cpp
+  src/GPULogger.cpp
+  src/StartupCoordinator.cpp
+  src/WindowManager.cpp
 )
 target_link_libraries(App PRIVATE imgui::imgui)
 target_link_libraries(App PRIVATE glm::glm)

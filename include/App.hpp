@@ -4,16 +4,13 @@
 #include "GPUContext.hpp"
 #include "ImGuiManager.hpp"
 #include "Scene.hpp"
+#include "WindowManager.hpp"
 #include "formatted_webgpu.h"
+#include "StartupCoordinator.hpp"
+
 #include <chrono>
 #include <memory>
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#include <GLFW/glfw3.h>
-#else
-#include <GLFW/glfw3.h>
-#endif
 #include <spdlog/logger.h>
 
 const float kDefaultDeltaTime = 0.016;
@@ -22,26 +19,26 @@ class App {
   App() = default;
   ~App() = default;
   void Initalize(uint16_t width, uint16_t height, const std::string &title);
-  bool IsInitalized() {return initialized_state_ == InitializationState::Ready;}
-  inline void SetInitalizedState(InitializationState state){initialized_state_ = state;}
   void UpdateInitalization();
   void Update();
+
+  bool IsInitalized(){ return coordinator.IsInitalized(); }
   
   void Shutdown();
   [[nodiscard]] bool IsRunning() const;
-  [[nodiscard]] GLFWwindow* GetWindow() const {return window_;};
   [[nodiscard]] float GetDeltaTime() const;
   [[nodiscard]] double GetTotalTimeElapsed() const;
+  void StopApp(){ running_ = false;}
 
  private:
+  WindowManager window_manager = {};
+  StartupCoordinator coordinator = {};
   GPUContext gpu = {};
   Scene scene = {};
   ImGuiManager imgui_manager = {};
-  InitializationState initialized_state_ = InitializationState::Uninitalised;
   void CalculateDeltaTime();
   void InitializeLogging();
   void LogTime();
-  GLFWwindow* window_ = nullptr;
   bool running_ = true;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
   
@@ -49,7 +46,7 @@ class App {
   std::chrono::time_point<std::chrono::high_resolution_clock> last_frame_time_ = {};
   
   double total_time_elapsed_ = 0.0;
-  float delta_time_ = 0.016f; // kDefaultDeltaTime
+  float delta_time_ = kDefaultDeltaTime;
   int last_second_ = -1;
 };
 

@@ -22,6 +22,8 @@
 #include "glfw3webgpu.h"
 #include "BufferFactory.hpp"
 #include "RenderDataPacker.hpp"
+#include "StartupCoordinator.hpp"
+
 #ifndef NDEBUG
   #include "DebugTools.hpp"
 #endif
@@ -30,8 +32,6 @@ enum BindingType {
   kUniforms = 0,
   kObjectData
 };
-
-
 struct Uniforms {
   glm::f32 time = 0; // at byte offset 0
   glm::f32 delta_time = 0; // at byte offset 
@@ -39,95 +39,69 @@ struct Uniforms {
   glm::mat4 projection_matrix = {};
 }; // Apparently takes 80 bytes!  Starts at an offset of 16.
 
-
-void GPUContext::StartAdapterRequest(const wgpu::RequestAdapterOptions *options, App &app) {
+void GPUContext::StartAdapterRequest(const wgpu::RequestAdapterOptions *options, StartupCoordinator &startup_coordinator) {
   instance_.RequestAdapter(
-    options,GetPlatformCallbackMode(), [this, &app](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, wgpu::StringView message) {
+    options,GetPlatformCallbackMode(), [this, &startup_coordinator](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, wgpu::StringView message) {
       if (status == wgpu::RequestAdapterStatus::Success) {
           spdlog::debug("Recieved adapter.");
           adapter_ = result_adapter;
-          app.SetInitalizedState(InitializationState::RequestingDevice); 
+          startup_coordinator.SetInitalizedState(InitializationState::RequestingDevice); 
       } else {
           spdlog::error("Failed to get an adapter: {}", message);
-          app.SetInitalizedState(InitializationState::Failed);
+          startup_coordinator.SetInitalizedState(InitializationState::Failed);
       }
     }
   );
 }
-void GPUContext::StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor, App &app){
+void GPUContext::StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor, StartupCoordinator &startup_coordinator){
   adapter_.RequestDevice(
-    descriptor, GetPlatformCallbackMode(), [this, &app](wgpu::RequestDeviceStatus status, wgpu::Device result_device, [[maybe_unused]]wgpu::StringView message) {
+    descriptor, GetPlatformCallbackMode(), [this, &startup_coordinator](wgpu::RequestDeviceStatus status, wgpu::Device result_device, [[maybe_unused]]wgpu::StringView message) {
       if (status == wgpu::RequestDeviceStatus::Success) {
         spdlog::debug("Recieved device.");
         device_ = result_device;
-        app.SetInitalizedState(InitializationState::ReceivedAdapterAndDevice);
+        startup_coordinator.SetInitalizedState(InitializationState::ReceivedAdapterAndDevice);
       } else {
         spdlog::error("Failed to get a device: {}", message);
-        app.SetInitalizedState(InitializationState::Failed);
+        startup_coordinator.SetInitalizedState(InitializationState::Failed);
       }
     }
   );
 }
-void GPUContext::OutputFeatures(const wgpu::SupportedFeatures &features){
-  for (size_t i = 0; i < features.featureCount; ++i){
-    auto feature = features.features[i];
-    spdlog::debug("feature: {}", feature);
-  }
+void GPUContext::SetupAdapterRequest(StartupCoordinator &startup_coordinator){
+  wgpu::RequestAdapterOptions adapter_options = {};
+  StartAdapterRequest(&adapter_options, startup_coordinator);
 }
-void GPUContext::OutputLimits(const wgpu::Limits &limits){
-  spdlog::debug("maxTextureDimension1D: {}", limits.maxTextureDimension1D);
-  spdlog::debug("maxTextureDimension2D: {}", limits.maxTextureDimension2D);
-  spdlog::debug("maxTextureDimension3D: {}", limits.maxTextureDimension3D);
-  spdlog::debug("maxTextureArrayLayers: {}", limits.maxTextureArrayLayers);
-  spdlog::debug("maxVertexAttributes: {}", limits.maxVertexAttributes);
-  spdlog::debug("maxVertexBuffers: {}", limits.maxVertexBuffers);
-  spdlog::debug("maxVertexBuffersArrayStride: {}", limits.maxVertexBufferArrayStride);
-  spdlog::debug("maxBindGroups: {}", limits.maxBindGroups);
-  spdlog::debug("maxUniformBuffersPerShaderStage: {}", limits.maxUniformBuffersPerShaderStage);
-  spdlog::debug("maxUniformBufferBindingSize: {}", limits.maxUniformBufferBindingSize);
-}
-void GPUContext::InspectDevice(wgpu::Device device){
-  //Features
-  spdlog::debug("Device features: ");
-  wgpu::SupportedFeatures features;
-  device.GetFeatures(&features);
-  OutputFeatures(features);
-  //Limits
-  spdlog::debug("Device limits: ");
+void GPUContext::SetupDeviceRequest(StartupCoordinator &startup_coordinator){
+  wgpu::DeviceDescriptor device_descriptor = {};
+  device_descriptor.nextInChain = nullptr;
+  device_descriptor.label = WGPUStringView{.data = "TestDevice",.length = WGPU_STRLEN};
+  device_descriptor.requiredFeatureCount = 0;
+  device_descriptor.requiredLimits = nullptr;
+  device_descriptor.defaultQueue.nextInChain = nullptr;
+  device_descriptor.defaultQueue.label = WGPUStringView{.data = "DefaultQueue",.length = WGPU_STRLEN};
   wgpu::Limits limits = {};
-  bool success = device.GetLimits(&limits) == wgpu::Status::Success;
-  if (success) {
-    OutputLimits(limits);
-  }
+  limits.maxVertexAttributes = 8;
+  limits.maxVertexBuffers = 4;
+  limits.maxBufferSize = 6 * 10 * sizeof(float);
+  limits.maxVertexBufferArrayStride = 10 * sizeof(float);
+  limits.maxInterStageShaderVariables = 3;
+  limits.maxBindGroups = 1;
+  limits.maxUniformBuffersPerShaderStage = 1;
+  limits.maxUniformBufferBindingSize = 2000;
+  limits.maxStorageBufferBindingSize = 1024 * 1024;
+  limits.maxStorageBuffersPerShaderStage = 1;
+  device_descriptor.requiredLimits = &limits;
+  device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
+    spdlog::warn("Device lost. reason: {}", reason);
+    if (message.data && message.length > 0) spdlog::info("({})", message);
+  });
+  device_descriptor.SetUncapturedErrorCallback([]([[maybe_unused]]wgpu::Device const& device, wgpu::ErrorType error, wgpu::StringView message){
+    spdlog::error("Device uncaptured error: {}", error);
+    if (message.data && message.length > 0) spdlog::info("({})", message);
+  });
+  StartDeviceRequest(&device_descriptor, startup_coordinator);
 }
-void GPUContext::InspectAdapter(const wgpu::Adapter &adapter){
-  //Limits
-  spdlog::debug("Adapter limits:");
-  wgpu::Limits limits = {};
-  bool success = adapter.GetLimits(&limits) == wgpu::Status::Success;
-  if (success) {
-    OutputLimits(limits);
-  }
-  // Features
-  spdlog::debug("Adapter features:");
-  wgpu::SupportedFeatures features;
-  adapter.GetFeatures(&features);
-  OutputFeatures(features);
-  // Properties
-  spdlog::debug("Adapter properties:");
-  wgpu::AdapterInfo info = {};
-  adapter.GetInfo(&info);
-  spdlog::debug("vendorID: {}", info.vendorID);
-  spdlog::debug("vendor: {}", info.vendor);
-  spdlog::debug("architecture: {}", info.architecture);
-  spdlog::debug("deviceID: {}", info.deviceID);
-  spdlog::debug("device: {}", info.device);
-  spdlog::debug("description: {}", info.description);
-  spdlog::debug("subgroup minimum size: {}", info.subgroupMinSize);
-  spdlog::debug("subgroup maximum size: {}", info.subgroupMaxSize);
-  spdlog::debug("adapter type: {}", info.adapterType);
-  spdlog::debug("backend type: {}", info.backendType);
-}
+
 void GPUContext::InitializeSurface(GLFWwindow *window) {
   spdlog::trace("Initializing surface for window. Window pointer: {}", static_cast<void*>(window));
   surface_ = wgpu::Surface::Acquire(glfwCreateWindowWGPUSurface(instance_.Get(), window));
@@ -149,11 +123,9 @@ void GPUContext::InitializeInstance() {
   }
   else spdlog::info("WGPUInstance created");
 }
-
 void GPUContext::ConfigureQueue(){
   queue_ = device_.GetQueue();
 }
-
 std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GPUContext::GetNextSurfaceViewData(){
   wgpu::SurfaceTexture surface_texture = {};
   surface_.GetCurrentTexture(&surface_texture);
@@ -176,11 +148,9 @@ std::pair<wgpu::SurfaceTexture, wgpu::TextureView> GPUContext::GetNextSurfaceVie
   wgpu::TextureView target_view = surface_texture.texture.CreateView(&view_descriptor);
   return {surface_texture, target_view};
 }
-
 void GPUContext::ProcessEvents(){
   instance_.ProcessEvents();
 }
-
 void GPUContext::Update(float delta_time, double total_time_elapsed_){
   #ifndef NDEBUG
     DebugSleep(0.016);
@@ -325,9 +295,7 @@ void GPUContext::CreateRenderPipeline(){
   bind_group_descriptor.entries = entries.data();
   bind_group_ = device_.CreateBindGroup(&bind_group_descriptor);
 }
-void GPUContext::CreateResources() {
-  // TODO: Initialize point_buffer, index_buffer, and uniform_buffer
-}
+void GPUContext::CreateResources() {}
 void GPUContext::HotReloadShaders() {
   CreateShaderModules();
   CreateRenderPipeline();
@@ -345,6 +313,12 @@ void GPUContext::CreateShaderModules(){
   //shader_module_ = InitaliseShader("assets/shader.wgsl");
   //ctx.computer_shader_module = InitaliseShader(ctx, "assets/compute_shader.wgsl");
 }
+void GPUContext::UpdateViewProjectionMatrices(){
+  projection_matrix_ = glm::ortho(0.0f, static_cast<float>(surface_configuration_.width), static_cast<float>(surface_configuration_.height), 0.0f);
+  view_matrix_ = glm::translate(glm::mat4(1.0f), glm::vec3(camera_x, camera_y, 0.0f));
+  projection_matrix_ = projection_matrix_ * view_matrix_;
+}
+
 
   //Vertex Pipeline State
   // std::vector<float> point_data = {
@@ -358,10 +332,3 @@ void GPUContext::CreateShaderModules(){
   //   0 , 1, 2, // Triangle 0 connects points 0, 1, 2
   //   0, 2, 3 // Triangle 1 connects points 0, 2, and 3
   // };
-
-
-void GPUContext::UpdateViewProjectionMatrices(){
-  projection_matrix_ = glm::ortho(0.0f, static_cast<float>(surface_configuration_.width), static_cast<float>(surface_configuration_.height), 0.0f);
-  view_matrix_ = glm::translate(glm::mat4(1.0f), glm::vec3(camera_x, camera_y, 0.0f));
-  projection_matrix_ = projection_matrix_ * view_matrix_;
-}

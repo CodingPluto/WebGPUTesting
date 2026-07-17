@@ -28,6 +28,5 @@ CompileFlags:
 
 
 Next steps:
-- Add a seperate logger static class for GPUContext to remove the bloat from it. This way passing in the variables to the function makes sense.
-- Clean up the App initalisation code such that we might be able to remove some getters and some bloat.
+- Add what was recommended by ChatGPT for passing the render data.
 - Finish the boid simulation code.
