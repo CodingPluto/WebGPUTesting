@@ -110,7 +110,7 @@ if (EMSCRIPTEN)
         -sUSE_GLFW=3
         #--use-port=emdawnwebgpu - I think imGUI uses this already so adding it twice throws an error.
         --preload-file ${CMAKE_SOURCE_DIR}/assets@assets/
-        --shell-file my_custom_shell.html
+        #--shell-file my_custom_shell.html
     )
   set_target_properties(App PROPERTIES SUFFIX ".html")
   if (CMAKE_BUILD_TYPE STREQUAL "Debug")
