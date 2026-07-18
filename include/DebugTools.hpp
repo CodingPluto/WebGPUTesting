@@ -10,6 +10,9 @@
 #endif
 
 inline void DebugSleep(const float seconds) {
+  #ifdef NDEBUG
+    return;
+  #endif
   const uint32_t millisecond_duration = static_cast<uint32_t>(seconds * 1000);
   #ifdef __EMSCRIPTEN__
     emscripten_sleep(millisecond_duration);
