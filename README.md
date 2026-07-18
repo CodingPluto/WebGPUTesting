@@ -6,7 +6,7 @@ Prequesites for this repository:
 - emsdk (if you want to build for web) (make sure added to path)
 - vcpkg (make sure added to path)
 - ninja
-
+- pkg-config
 
 To initalise the project and install dawn:
 vcpkg install
