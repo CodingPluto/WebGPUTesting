@@ -97,7 +97,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char*argv[]){
   #endif
   FixWorkingDirectory();
   App app = {};
-  app.Initalize(1280, 720, "WebGPU Boids");
+  app.Initalize(1280, 720, "GMTK2026");
   #ifdef __EMSCRIPTEN__
     EmscriptenArgs emscripten_args = {.app = app};
     emscripten_set_main_loop_arg(EmscriptenLoop, &emscripten_args, 0, true);

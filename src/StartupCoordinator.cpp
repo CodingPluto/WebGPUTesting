@@ -7,7 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <spdlog/spdlog.h>
 
-void StartupCoordinator::StartupTick(GPUContext &gpu, ImGuiManager &imgui_manager, GLFWwindow *window){
+void StartupCoordinator::StartupTick(GPUContext &gpu){
   spdlog::info("Initalization stage: {}", initialized_state_);
   switch (initialized_state_){
     case InitializationState::Uninitalised: {
@@ -29,12 +29,12 @@ void StartupCoordinator::StartupTick(GPUContext &gpu, ImGuiManager &imgui_manage
       return;
     case InitializationState::ReceivedAdapterAndDevice:
       GPULogger::InspectDevice(gpu.GetDevice());
-      gpu.ConfigureQueue();
-      gpu.CreateShaderModules();
-      gpu.ConfigureSurface();
-      gpu.CreateRenderPipeline();
-      gpu.CreateComputePipeline();
-      imgui_manager.Initialize(window, gpu.GetDevice(), gpu.GetSurfaceFormat());
+      // wgpu::BufferDescriptor desc = {};
+      // desc.size = 100 * 1024 * 1024; // 100MB (Way over your 240-byte limit)
+      // desc.usage = wgpu::BufferUsage::CopySrc;
+
+      // // This will fail validation instantly and fire your UncapturedErrorCallback
+      // wgpu::Buffer badBuffer = gpu.GetDevice().CreateBuffer(&desc);
       initialized_state_ = InitializationState::Ready;
       return;
     default:

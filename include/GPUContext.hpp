@@ -12,11 +12,23 @@
 
 #include "formatted_webgpu.h"
 
-struct ObjectData {
+
+struct Mesh {
+    wgpu::Buffer vertex_buffer;
+    wgpu::Buffer index_buffer;
+    uint32_t index_count = 0;
+};
+struct GPUObjectData {
   glm::vec3 color = glm::vec3(1.0,1.0,1.0);
   float padding_1 = 0.0;
   glm::mat4 model_matrix = glm::mat4(1.0);
 };
+struct ObjectInstance{
+  Mesh &mesh;
+  GPUObjectData object_data;
+};
+
+
 
 class GPUContext {
 private:
@@ -43,6 +55,9 @@ private:
   wgpu::BindGroup bind_group_ = nullptr;
   wgpu::RenderPassEncoder render_pass_ = nullptr;
   wgpu::CommandEncoder encoder_ = nullptr;
+
+  wgpu::RequestAdapterOptions adapter_options_ = {};
+  wgpu::DeviceDescriptor device_descriptor_ = {};
   
   wgpu::Buffer vertex_buffer_ = nullptr;
   wgpu::Buffer index_buffer_ = nullptr;
@@ -55,9 +70,10 @@ private:
   uint32_t index_count_ = 0;
 
   std::filesystem::file_time_type shader_last_edited_ = {};
-  std::vector<ObjectData> object_data_scratchpad = {};
+  std::span<const GPUObjectData> object_data_scratchpad_span_ = {};
 public:
-  std::vector<ObjectData>& GetObjectDataScratchPadReference(){ return object_data_scratchpad;}
+  // WIP HERE
+  void UpdateObjectDataScratchPad(std::span<const GPUObjectData> objects);
   void StartAdapterRequest(const wgpu::RequestAdapterOptions *options, class StartupCoordinator &startup_coordinator);
   void StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor, class StartupCoordinator &startup_coordinator);
   void SetupAdapterRequest(class StartupCoordinator &startup_coordinator);

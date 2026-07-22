@@ -23,17 +23,28 @@
 
 void App::UpdateInitalization(){
   DebugSleep(0.1);
-  coordinator.StartupTick(gpu, imgui_manager, window_manager.GetNativeWindowHandle());
+  coordinator_.StartupTick(gpu_);
+  if (coordinator_.IsInitalized()){
+    gpu_.ConfigureQueue(); // Change this so GPU owns the Coordinator and therefore this will all go in there after GPU has initalised and we can just poll from here
+    // job for you after game jam (:
+    gpu_.CreateShaderModules();
+    gpu_.ConfigureSurface();
+    gpu_.CreateRenderPipeline();
+    gpu_.CreateComputePipeline();
+    imgui_manager_.Initialize(window_manager_.GetNativeWindowHandle(), gpu_.GetDevice(), gpu_.GetSurfaceFormat());
+    spdlog::info("Application Initalization Complete");
+  }
 }
 void App::Initalize(uint16_t width, uint16_t height, const std::string& title) {
   InitializeLogging();
   spdlog::info("Using Emscripten: {}", UsingEmscripten());
-  window_manager.Initalize(width, height, title);
+  window_manager_.Initalize(width, height, title);
+  input_.Initialize(window_manager_.GetNativeWindowHandle());
   start_time_ = std::chrono::high_resolution_clock::now();
   last_frame_time_ = std::chrono::high_resolution_clock::now();
-  gpu.InitializeInstance();
-  gpu.InitializeSurface(window_manager.GetNativeWindowHandle());
-  scene.Initalize();
+  gpu_.InitializeInstance();
+  gpu_.InitializeSurface(window_manager_.GetNativeWindowHandle());
+  scene_.Initalize();
 }
 void App::LogTime(){
   int current_second = static_cast<int>(total_time_elapsed_);
@@ -54,19 +65,27 @@ void App::CalculateDeltaTime(){
   total_time_elapsed_ += delta_time_;
 }
 void App::Update() {
+  window_manager_.Update(*this, input_);
+  if (!window_manager_.IsFocused()){
+    spdlog::info("Window is not focused, skipping frame update");
+    #ifndef __EMSCRIPTEN__
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    #endif
+    return;
+  }
   CalculateDeltaTime();
   LogTime();
-  window_manager.Update(*this);
-  imgui_manager.BeginFrame();
-  scene.Update(GetDeltaTime());
-  UpdateGPUObjectData(gpu, scene.GetRegistry());
-  gpu.Update(GetDeltaTime(), GetTotalTimeElapsed());
-  imgui_manager.EndFrame(gpu.GetRenderPassEncoder());
-  gpu.Render();
+  imgui_manager_.BeginFrame();
+  scene_.Update(GetDeltaTime(), input_, window_manager_);
+  UpdateGPUObjectData(gpu_, frame_render_data_, scene_.GetRegistry());
+  gpu_.Update(GetDeltaTime(), GetTotalTimeElapsed());
+  imgui_manager_.EndFrame(gpu_.GetRenderPassEncoder());
+  gpu_.Render();
+  input_.Update();
 }
 void App::Shutdown() {
-    imgui_manager.Shutdown();
-    window_manager.Shutdown();
+    imgui_manager_.Shutdown();
+    window_manager_.Shutdown();
 }
 bool App::IsRunning() const {
   return running_; 

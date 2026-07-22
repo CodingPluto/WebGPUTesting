@@ -7,6 +7,8 @@
 #include "WindowManager.hpp"
 #include "formatted_webgpu.h"
 #include "StartupCoordinator.hpp"
+#include "FrameRenderData.hpp"
+#include "Input.hpp"
 
 #include <chrono>
 #include <memory>
@@ -22,7 +24,7 @@ class App {
   void UpdateInitalization();
   void Update();
 
-  bool IsInitalized(){ return coordinator.IsInitalized(); }
+  bool IsInitalized(){ return coordinator_.IsInitalized(); }
   
   void Shutdown();
   [[nodiscard]] bool IsRunning() const;
@@ -31,11 +33,13 @@ class App {
   void StopApp(){ running_ = false;}
 
  private:
-  WindowManager window_manager = {};
-  StartupCoordinator coordinator = {};
-  GPUContext gpu = {};
-  Scene scene = {};
-  ImGuiManager imgui_manager = {};
+  WindowManager window_manager_ = {};
+  StartupCoordinator coordinator_ = {};
+  GPUContext gpu_ = {};
+  Scene scene_ = {};
+  ImGuiManager imgui_manager_ = {};
+  FrameRenderData frame_render_data_ = {};
+  Input input_ = {};
   void CalculateDeltaTime();
   void InitializeLogging();
   void LogTime();

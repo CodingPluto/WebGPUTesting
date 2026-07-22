@@ -4,6 +4,7 @@
 #include <entt/entt.hpp>
 
 #include "GPUContext.hpp"
+#include "Input.hpp"
 
 class Scene{
 private:
@@ -13,7 +14,8 @@ public:
   ~Scene() = default;
 
   void Initalize();
-  void Update(float delta_time);
+  void Update(float delta_time, const Input &input_, const WindowManager &window_manager_);
+  [[nodiscard]]
   const entt::registry &GetRegistry() { return registry_;}
 };
 

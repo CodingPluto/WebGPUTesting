@@ -39,6 +39,9 @@ struct Uniforms {
   glm::mat4 projection_matrix = {};
 }; // Apparently takes 80 bytes!  Starts at an offset of 16.
 
+void GPUContext::UpdateObjectDataScratchPad(std::span<const GPUObjectData> objects){
+  object_data_scratchpad_span_ = objects;
+}
 void GPUContext::StartAdapterRequest(const wgpu::RequestAdapterOptions *options, StartupCoordinator &startup_coordinator) {
   instance_.RequestAdapter(
     options,GetPlatformCallbackMode(), [this, &startup_coordinator](wgpu::RequestAdapterStatus status, wgpu::Adapter result_adapter, wgpu::StringView message) {
@@ -68,17 +71,15 @@ void GPUContext::StartDeviceRequest(const wgpu::DeviceDescriptor *descriptor, St
   );
 }
 void GPUContext::SetupAdapterRequest(StartupCoordinator &startup_coordinator){
-  wgpu::RequestAdapterOptions adapter_options = {};
-  StartAdapterRequest(&adapter_options, startup_coordinator);
+  StartAdapterRequest(&adapter_options_, startup_coordinator);
 }
 void GPUContext::SetupDeviceRequest(StartupCoordinator &startup_coordinator){
-  wgpu::DeviceDescriptor device_descriptor = {};
-  device_descriptor.nextInChain = nullptr;
-  device_descriptor.label = WGPUStringView{.data = "TestDevice",.length = WGPU_STRLEN};
-  device_descriptor.requiredFeatureCount = 0;
-  device_descriptor.requiredLimits = nullptr;
-  device_descriptor.defaultQueue.nextInChain = nullptr;
-  device_descriptor.defaultQueue.label = WGPUStringView{.data = "DefaultQueue",.length = WGPU_STRLEN};
+  device_descriptor_.nextInChain = nullptr;
+  device_descriptor_.label = WGPUStringView{.data = "TestDevice",.length = WGPU_STRLEN};
+  device_descriptor_.requiredFeatureCount = 0;
+  device_descriptor_.requiredLimits = nullptr;
+  device_descriptor_.defaultQueue.nextInChain = nullptr;
+  device_descriptor_.defaultQueue.label = WGPUStringView{.data = "DefaultQueue",.length = WGPU_STRLEN};
   wgpu::Limits limits = {};
   limits.maxVertexAttributes = 8;
   limits.maxVertexBuffers = 4;
@@ -90,16 +91,16 @@ void GPUContext::SetupDeviceRequest(StartupCoordinator &startup_coordinator){
   limits.maxUniformBufferBindingSize = 2000;
   limits.maxStorageBufferBindingSize = 1024 * 1024;
   limits.maxStorageBuffersPerShaderStage = 1;
-  device_descriptor.requiredLimits = &limits;
-  device_descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
+  device_descriptor_.requiredLimits = &limits;
+  device_descriptor_.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous, []([[maybe_unused]]wgpu::Device const& device, wgpu::DeviceLostReason reason, wgpu::StringView message){
     spdlog::warn("Device lost. reason: {}", reason);
     if (message.data && message.length > 0) spdlog::info("({})", message);
   });
-  device_descriptor.SetUncapturedErrorCallback([]([[maybe_unused]]wgpu::Device const& device, wgpu::ErrorType error, wgpu::StringView message){
+  device_descriptor_.SetUncapturedErrorCallback([]([[maybe_unused]]wgpu::Device const& device, wgpu::ErrorType error, wgpu::StringView message){
     spdlog::error("Device uncaptured error: {}", error);
     if (message.data && message.length > 0) spdlog::info("({})", message);
   });
-  StartDeviceRequest(&device_descriptor, startup_coordinator);
+  StartDeviceRequest(&device_descriptor_, startup_coordinator);
 }
 
 void GPUContext::InitializeSurface(GLFWwindow *window) {
@@ -153,7 +154,7 @@ void GPUContext::ProcessEvents(){
 }
 void GPUContext::Update(float delta_time, double total_time_elapsed_){
   #ifndef NDEBUG
-    DebugSleep(0.016);
+    DebugSleep(0.05);
   #endif
   #ifndef __EMSCRIPTEN__
     if (delta_time < 0.003){
@@ -172,7 +173,7 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
     .delta_time = (glm::f32)delta_time,
     .projection_matrix = projection_matrix_
   };
-  queue_.WriteBuffer(storage_buffer_, 0, object_data_scratchpad.data(), object_data_scratchpad.size() * sizeof(ObjectData));
+  queue_.WriteBuffer(storage_buffer_, 0, object_data_scratchpad_span_.data(), object_data_scratchpad_span_.size() * sizeof(GPUObjectData));
   queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
   auto [surface_view, target_view] = GetNextSurfaceViewData();
   wgpu::CommandEncoderDescriptor encoder_descriptor = {.nextInChain = nullptr, .label = "My command encoder"};
@@ -196,7 +197,7 @@ void GPUContext::Update(float delta_time, double total_time_elapsed_){
   render_pass_.SetVertexBuffer(0, vertex_buffer_, 0, vertex_buffer_.GetSize());
   render_pass_.SetIndexBuffer(index_buffer_, wgpu::IndexFormat::Uint16, 0, index_buffer_.GetSize());
   render_pass_.SetBindGroup(0, bind_group_, 0, nullptr);
-  render_pass_.DrawIndexed(index_count_, object_data_scratchpad.size(), 0,0, 0);
+  render_pass_.DrawIndexed(index_count_, object_data_scratchpad_span_.size(), 0,0, 0);
   // might need to change instanceCount to a different variable if we allocate differently in the future.
   
 
@@ -234,7 +235,7 @@ void GPUContext::CreatePipelineLayout() {
   bindings[BindingType::kObjectData].binding = 1;
   bindings[BindingType::kObjectData].visibility = wgpu::ShaderStage::Vertex;
   bindings[BindingType::kObjectData].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
-  bindings[BindingType::kObjectData].buffer.minBindingSize = sizeof(ObjectData);
+  bindings[BindingType::kObjectData].buffer.minBindingSize = sizeof(GPUObjectData);
   wgpu::BindGroupLayoutDescriptor bind_group_layout_descriptor = {};
   bind_group_layout_descriptor.entryCount = (uint32_t)bindings.size();
   bind_group_layout_descriptor.entries = bindings.data();
@@ -278,7 +279,7 @@ void GPUContext::CreateRenderPipeline(){
   queue_.WriteBuffer(uniform_buffer_, 0, &uniforms, sizeof(Uniforms));
   wgpu::BufferDescriptor storage_descriptor = {
     .usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst,
-    .size = kMaxObjects * sizeof(ObjectData)
+    .size = kMaxObjects * sizeof(GPUObjectData)
   };
   storage_buffer_ = device_.CreateBuffer(&storage_descriptor);
   std::vector<wgpu::BindGroupEntry> entries(2);
@@ -287,8 +288,8 @@ void GPUContext::CreateRenderPipeline(){
   entries[BindingType::kUniforms].size = sizeof(Uniforms);
   entries[BindingType::kObjectData].binding = 1;
   entries[BindingType::kObjectData].buffer = storage_buffer_;
-  entries[BindingType::kObjectData].size = kMaxObjects * sizeof(ObjectData);
-  spdlog::debug("Size of Object Data: {}", sizeof(ObjectData));
+  entries[BindingType::kObjectData].size = kMaxObjects * sizeof(GPUObjectData);
+  spdlog::debug("Size of Object Data: {}", sizeof(GPUObjectData));
   wgpu::BindGroupDescriptor bind_group_descriptor = {};
   bind_group_descriptor.layout = bind_group_layout_;
   bind_group_descriptor.entryCount = (uint32_t)entries.size();

@@ -30,3 +30,8 @@ CompileFlags:
 Next steps:
 - Add what was recommended by ChatGPT for passing the render data.
 - Finish the boid simulation code.
+
+
+GPUContext owns rendering and GPU state.
+A separate RenderDataPacker/RenderExtractor converts EnTT components into GpuObjectData.
+FrameRenderData owns the temporary vector instead of exposing GPUContext’s internal scratchpad.

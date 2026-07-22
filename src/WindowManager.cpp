@@ -27,10 +27,19 @@ void WindowManager::Initalize(uint16_t width, uint16_t height, const std::string
     spdlog::critical("Failed to open Window");
     assert(false);
   }
+  glfwSetWindowUserPointer(window_, this);
+  glfwSetWindowFocusCallback(window_, []([[maybe_unused]]GLFWwindow* window, [[maybe_unused]]int focused){
+    auto* window_manager = static_cast<WindowManager*>(glfwGetWindowUserPointer(window));
+    window_manager->window_focused_ = static_cast<bool>(focused);
+  });
 }
 
-void WindowManager::Update(App &app){
+void WindowManager::Update(App &app, [[maybe_unused]]const Input &input){
   glfwPollEvents();
+  // if (input.IsKeyDown(GLFW_KEY_ESCAPE)){
+  //   spdlog::info("Escape key pressed, closing window");
+  //   glfwSetWindowShouldClose(window_, GLFW_TRUE);
+  // }
   if (glfwWindowShouldClose(window_)) app.StopApp();
 }
 

@@ -38,6 +38,7 @@ add_executable(App
   src/ImGuiManager.cpp
   src/GPULogger.cpp
   src/StartupCoordinator.cpp
+  src/Input.cpp
   src/WindowManager.cpp
 )
 target_link_libraries(App PRIVATE imgui::imgui)

@@ -10,7 +10,7 @@ class StartupCoordinator{
   public:
   bool IsInitalized() {return initialized_state_ == InitializationState::Ready;}
   inline void SetInitalizedState(InitializationState state){initialized_state_ = state;}
-  void StartupTick(GPUContext &gpu, ImGuiManager &imgui_manager, GLFWwindow *window);
+  void StartupTick(GPUContext &gpu);
 };
 
 

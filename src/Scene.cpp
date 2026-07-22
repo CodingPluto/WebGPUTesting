@@ -5,11 +5,13 @@
 #include <sys/types.h>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
+#include <GLFW/glfw3.h>
 
 #include "GPUContext.hpp"
 #include "Scene.hpp"
 #include "Components.hpp"
 #include "RenderDataPacker.hpp"
+#include "Input.hpp"
 
 Scene::Scene() {}
 
@@ -28,75 +30,7 @@ void Scene::Initalize() {
     }
 }
 
-// void Seperate(BoidComponent &boid, TransformComponent &transform, const entt::registry &registry){
-//   auto view = registry.view<const BoidComponent, TransformComponent>();
-//   //glm::vec2 steering = {0,0};
-//   //int count = 0;
-//   const float avoid_factor = 0.05;
-//   float desired_separation = 25;
-//   glm::vec2 movement_vector = {0,0};
-//   for (entt::entity boid : view){
-//     auto& interacting_transform = view.get<TransformComponent>(boid);
-//     float distance = glm::distance(transform.position, interacting_transform.position);
-//     if (distance > 0 && distance < desired_separation){
-//       movement_vector += transform.position - interacting_transform.position;
-//       //movement_vector = movement_vector / distance;
-//       //count += 1;
-//     }
-//   }
-
-//   boid.velocity += movement_vector * avoid_factor;
-  
-//   // if (count > 0){
-//   //   steering = steering / static_cast<float>(count);
-//   //   steering = steering * boid.max_speed - boid.velocity;
-//   // }
-// }
-
-// void MatchVelocity(BoidComponent &boid, TransformComponent &transform, const entt::registry &registry){
-//   const float matching_factor = 0.05;
-//   const float visual_range = 75;
-//   uint32_t neighbours = 0;
-//   glm::vec2 average_velocity = {0,0};
-//   auto view = registry.view<const BoidComponent, TransformComponent>();
-//   for (entt::entity entity : view){
-//     auto& interacting_transform = view.get<TransformComponent>(entity);
-//     auto& interacting_boid = view.get<BoidComponent>(entity);
-//     float distance = glm::distance(transform.position, interacting_transform.position);
-//     if (distance > 0 && distance < visual_range){
-//       average_velocity += interacting_boid.velocity;
-//       neighbours += 1;
-//     }
-//     if (neighbours > 0){
-//       average_velocity = average_velocity / static_cast<float>(neighbours);
-//       boid.velocity += (average_velocity - boid.velocity) * matching_factor;
-//     }
-//   }
-// }
-
-// void FlyTorwardsCenter(BoidComponent &boid, TransformComponent &transform, const entt::registry &registry){
-//   const float centering_factor = 0.005;
-//   glm::vec2 center = {400,400};
-//   auto view = registry.view<const BoidComponent, TransformComponent>();
-//   for (entt::entity entity : view){
-//     auto& interacting_transform = view.get<TransformComponent>(entity);
-//     auto& interacting_boid = view.get<BoidComponent>(entity);
-
-//     if (glm::distance)
-//   }
-
-// }
-
-
-// void UpdateBoidSystem(BoidComponent &boid, TransformComponent &transform, const entt::registry &registry){
-
-
-//   // Seperate
-// }
-
-//UpdateBoidSystem(boid, transform_component, registry_);
-
-void Scene::Update([[maybe_unused]]float delta_time){
+void Scene::Update([[maybe_unused]]float delta_time, [[maybe_unused]] const Input &input_, [[maybe_unused]] const WindowManager &window_manager_){
   auto view = registry_.view<const BoidComponent, TransformComponent>();
   for (entt::entity boid_entity : view){
     [[maybe_unused]]auto& this_boid_transform = view.get<TransformComponent>(boid_entity);
@@ -119,9 +53,16 @@ void Scene::Update([[maybe_unused]]float delta_time){
     if (this_boid_transform.position.x > 1280 - 50) this_boid_transform.position.x = 1280 - 50;
     if (this_boid_transform.position.y > 720 - 50) this_boid_transform.position.y = 720 - 50;
   }
-
-
-
+  if (input_.IsKeyDown(GLFW_KEY_SPACE)){
+    spdlog::info("Space key is down");
+  }
+  if (input_.IsKeyPressed(GLFW_KEY_SPACE)){
+    spdlog::info("Space key was pressed");
+  }
+  if (input_.IsKeyReleased(GLFW_KEY_SPACE)){
+    spdlog::info("Space key was released");
+  }
+  //spdlog::info("Mouse Delta: {}", glm::to_string(input_.GetMouseDelta()));
 }
 
 
